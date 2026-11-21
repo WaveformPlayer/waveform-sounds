@@ -530,6 +530,19 @@ describe('playback', () => {
         expect(rows()[0].classList.contains('is-playing')).toBe(true);
     });
 
+    it('strip: a cue fetches nothing (preload none); the next sound played gets the engine\'s preload back', async () => {
+        const ws = await make({player: 'strip', playerOptions: {preload: 'auto'}});
+        await settle();
+        const engine = MockWaveformPlayer.instances[0];
+        expect(engine.calls.loadTrack[0].options.preload).toBe('none');
+        expect(engine.audio.preload).toBe('none');
+        expect(engine.audio.duration).toBeNaN(); // no metadata fetched
+        ws.play(2);
+        await settle();
+        expect(engine.calls.loadTrack.at(-1).options.preload).toBe('auto');
+        expect(engine.audio.preload).toBe('auto');
+    });
+
     it('strip: a filter change re-cues the first sound shown; next() starts with the cued one', async () => {
         const ws = await make({player: 'strip'});
         await settle();
@@ -704,6 +717,34 @@ describe('playback', () => {
         await settle();
         expect(MockWaveformPlayer.instances).toHaveLength(1);
         window.WaveformPlayer = saved;
+    });
+});
+
+describe('drawing', () => {
+    it('a resize or theme flip redraws only the rows on screen; the rest redraw when they scroll in', async () => {
+        let io;
+        vi.stubGlobal('IntersectionObserver', class { constructor(cb) { io = cb; } observe() {} disconnect() {} });
+        try {
+            const ws = await make();
+            const drawn = [];
+            const real = ws._drawRow.bind(ws);
+            ws._drawRow = (i) => { drawn.push(i); real(i); };
+            const seen = (i, on) => ({target: rows()[i], isIntersecting: on});
+            io([seen(0, true), seen(1, true), seen(2, true)]);
+            expect(drawn).toEqual([0, 1, 2]);
+            io([seen(2, false)]);
+            drawn.length = 0;
+            ws._redrawAll(); // what the ResizeObserver / theme watch call
+            expect(drawn).toEqual([0, 1]);
+            expect(ws._dirty.has(2)).toBe(true);
+            drawn.length = 0;
+            io([seen(1, false)]);
+            io([seen(1, true), seen(2, true)]); // 1 is fresh: skipped; 2 is stale: redrawn
+            expect(drawn).toEqual([2]);
+            expect(ws._dirty.size).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });
 

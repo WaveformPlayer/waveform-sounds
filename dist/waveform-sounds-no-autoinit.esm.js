@@ -346,8 +346,9 @@ function engineOptions(user, layout, handlers) {
 function enginePeaks(sound, layout) {
   return layout === "strip" && sound.waveform || sound.peaks || null;
 }
-function engineTrack(sound, layout, autoplay) {
+function engineTrack(sound, layout, autoplay, preload) {
   const track = { waveform: enginePeaks(sound, layout), autoplay };
+  if (preload) track.preload = preload;
   if (sound.duration != null && sound.duration > 0) track.duration = sound.duration;
   if (sound.download) track.downloadUrl = sound.download;
   return track;
@@ -1632,11 +1633,18 @@ var WaveformSounds = class _WaveformSounds {
   _observe() {
     if (this.render.player !== "inline" || typeof window === "undefined") return;
     this._drawn = /* @__PURE__ */ new Set();
+    this._dirty = /* @__PURE__ */ new Set();
     if ("IntersectionObserver" in window) {
+      this._onScreen = /* @__PURE__ */ new Set();
       this._io = new IntersectionObserver((entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
           const i = Number(entry.target.dataset.wsIndex);
+          if (!entry.isIntersecting) {
+            this._onScreen.delete(i);
+            continue;
+          }
+          this._onScreen.add(i);
+          if (this._drawn.has(i) && !this._dirty.has(i)) continue;
           this._drawn.add(i);
           this._drawRow(i);
         }
@@ -1660,8 +1668,7 @@ var WaveformSounds = class _WaveformSounds {
       if (queued) return;
       queued = requestAnimationFrame(() => {
         queued = 0;
-        this._resolveColors();
-        this._redrawAll();
+        if (this._resolveColors()) this._redrawAll();
       });
     };
     this._mo = new MutationObserver(refresh);
@@ -1680,9 +1687,11 @@ var WaveformSounds = class _WaveformSounds {
    * Resolve the canvas colours (options, else the CSS custom properties;
    * system colours under forced colours) and keep `--ws-surface` current
    * unless the site set it.
+   * @returns Whether the canvas colours changed.
    * @internal
    */
   _resolveColors() {
+    const before = this.colors;
     if (this._autoSurface || !getComputedStyle(this.container).getPropertyValue("--ws-surface").trim()) {
       this._autoSurface = true;
       this.container.style.removeProperty("--ws-surface");
@@ -1693,6 +1702,7 @@ var WaveformSounds = class _WaveformSounds {
       wave: (forced ? resolveCssColor(this.container, "CanvasText") : this.options.waveformColor || resolveCssColor(this.container, "var(--ws-wave-color)")) || "rgba(128,128,128,.5)",
       progress: (forced ? resolveCssColor(this.container, "Highlight") : this.options.progressColor || resolveCssColor(this.container, "var(--ws-progress-color)")) || "currentColor"
     };
+    return !before || before.wave !== this.colors.wave || before.progress !== this.colors.progress;
   }
   /**
    * Draw one row's waveform (only once it has been on screen).
@@ -1702,7 +1712,12 @@ var WaveformSounds = class _WaveformSounds {
     if (this.render.player !== "inline" || index == null || !this._drawn?.has(index)) return;
     const row = this.rows[index];
     const canvas = row?.querySelector("canvas");
-    if (!canvas || row.hidden) return;
+    if (!canvas) return;
+    if (row.hidden) {
+      this._dirty?.add(index);
+      return;
+    }
+    this._dirty?.delete(index);
     const gap = Number(this.options.barGap);
     drawRowWaveform(canvas, this.sounds[index].peaks, index === this.currentIndex ? this.progress : 0, {
       style: this.options.waveformStyle,
@@ -1713,11 +1728,17 @@ var WaveformSounds = class _WaveformSounds {
     });
   }
   /**
-   * Redraw every row drawn so far.
+   * After a resize or a theme flip: redraw the rows on screen now, and
+   * mark the rest stale — each is redrawn when it scrolls back in. (With
+   * 1000 rows drawn, redrawing them all took ~0.4s in Chrome and ~1.9s in
+   * WebKit per resize step.)
    * @internal
    */
   _redrawAll() {
-    this._drawn?.forEach((i) => this._drawRow(i));
+    this._drawn?.forEach((i) => {
+      if (this._onScreen && !this._onScreen.has(i)) this._dirty.add(i);
+      else this._drawRow(i);
+    });
   }
   /* ── Filters in the address ───────────────────────────────────────── */
   /**
@@ -1922,14 +1943,16 @@ var WaveformSounds = class _WaveformSounds {
       console.error(`${LOG} @arraypress/waveform-player is required: load it before playing (or pass playerClass).`);
       return null;
     }
-    this.engine = new Player(this._engineMount(), engineOptions(this.options.playerOptions, this.render.player, {
+    const options = engineOptions(this.options.playerOptions, this.render.player, {
       onLoad: () => this._onEngineLoad(),
       onPlay: () => this._setPlaying(true),
       onPause: () => this._setPlaying(false),
       onEnd: () => this._onEnd(),
       onTimeUpdate: (time, duration) => this._onTime(time, duration),
       onError: (err) => this._onEngineError(err)
-    }));
+    });
+    this._preload = options.preload;
+    this.engine = new Player(this._engineMount(), options);
     return this.engine;
   }
   /**
@@ -1963,13 +1986,15 @@ var WaveformSounds = class _WaveformSounds {
     if (previous != null) this._paintRow(previous);
     this._paintRow(index);
     const sound = this.sounds[index];
-    engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true));
+    engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true, this._preload));
   }
   /**
    * Strip layout: load the first sound the list shows into the docked
    * player WITHOUT playing it, so the player shows a title and waveform
    * (and its play button plays that sound) instead of an empty frame.
-   * Only metadata is fetched — the browser default for any `<audio>`.
+   * Nothing is fetched (`preload: 'none'`): the player shows the title,
+   * length and peaks from the data, and the audio loads on play — a filter
+   * change re-cues, and each cue used to fetch a file's metadata.
    * The row isn't marked current until it plays.
    * @internal
    */
@@ -1982,7 +2007,15 @@ var WaveformSounds = class _WaveformSounds {
     this.currentIndex = index;
     this.progress = 0;
     this._cued = true;
-    engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, "strip", false));
+    const audio = engine.audio;
+    const shim = audio && typeof audio.load === "function";
+    if (shim) audio.load = () => {
+    };
+    try {
+      engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, "strip", false, "none"));
+    } finally {
+      if (shim) delete audio.load;
+    }
   }
   /** Pause the current sound. */
   pause() {

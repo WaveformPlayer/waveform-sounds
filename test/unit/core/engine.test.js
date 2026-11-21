@@ -49,6 +49,7 @@ describe('engineTrack', () => {
     it('peaks and autoplay; nothing per-track the sound lacks', () => {
         expect(engineTrack(base, 'inline', true)).toEqual({waveform: [0.5], autoplay: true});
         expect(engineTrack({...base, duration: 0}, 'strip', false)).toEqual({waveform: [0.5], autoplay: false});
+        expect(engineTrack(base, 'strip', false, 'none')).toEqual({waveform: [0.5], autoplay: false, preload: 'none'});
     });
     it("a known duration and the row's download link go with the sound", () => {
         expect(engineTrack({...base, duration: 8.02, download: '/a.wav'}, 'inline', true))

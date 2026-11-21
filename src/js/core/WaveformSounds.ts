@@ -157,13 +157,16 @@ export class WaveformSounds {
     /** @internal */ declare _sorts: string[];
     /** @internal */ declare _lastSort: string | undefined;
     /** @internal */ declare _lastPointer: string | undefined;
-    /** @internal */ declare _drawn: Set<number> | undefined;
+    /** @internal Rows drawn at least once. */ declare _drawn: Set<number> | undefined;
+    /** @internal Drawn rows whose picture is stale (redrawn when they show). */ declare _dirty: Set<number> | undefined;
+    /** @internal Rows near the viewport (undefined without IntersectionObserver). */ declare _onScreen: Set<number> | undefined;
     /** @internal */ declare _io: IntersectionObserver | undefined;
     /** @internal */ declare _ro: ResizeObserver | undefined;
     /** @internal */ declare _mo: MutationObserver | undefined;
     /** @internal */ declare _autoSurface: boolean | undefined;
     /** @internal */ declare _urlTimer: number | undefined;
     /** @internal */ declare _cued: boolean | undefined;
+    /** @internal The engine's own `preload` (a cue uses 'none'). */ declare _preload: string | undefined;
     /** @internal The row holding the list's one Tab stop. */ declare _active: HTMLElement | null;
     /** @internal The sound last reported as playing (its pause not yet reported). */ declare _announced: number | null | undefined;
 
@@ -556,11 +559,19 @@ export class WaveformSounds {
     _observe(): void {
         if (this.render.player !== 'inline' || typeof window === 'undefined') return;
         this._drawn = new Set();
+        this._dirty = new Set();
         if ('IntersectionObserver' in window) {
+            // Rows near the viewport. A row is drawn the first time it comes
+            // near, and again only if it went stale (a resize or a theme flip
+            // while it was away): a long list scrolled back and forth
+            // repaints nothing it doesn't have to.
+            this._onScreen = new Set();
             this._io = new IntersectionObserver((entries) => {
                 for (const entry of entries) {
-                    if (!entry.isIntersecting) continue;
                     const i = Number((entry.target as HTMLElement).dataset.wsIndex);
+                    if (!entry.isIntersecting) { this._onScreen!.delete(i); continue; }
+                    this._onScreen!.add(i);
+                    if (this._drawn!.has(i) && !this._dirty!.has(i)) continue;
                     this._drawn!.add(i);
                     this._drawRow(i);
                 }
@@ -582,7 +593,9 @@ export class WaveformSounds {
         let queued = 0;
         const refresh = () => {
             if (queued) return;
-            queued = requestAnimationFrame(() => { queued = 0; this._resolveColors(); this._redrawAll(); });
+            // A style change on an ancestor can be anything (an animation,
+            // a layout tweak): redraw only if the canvas colours moved.
+            queued = requestAnimationFrame(() => { queued = 0; if (this._resolveColors()) this._redrawAll(); });
         };
         // A theme can flip on ANY ancestor (a dark section, a themed card,
         // a framework's root div), not just <html> / <body>. The container
@@ -604,9 +617,11 @@ export class WaveformSounds {
      * Resolve the canvas colours (options, else the CSS custom properties;
      * system colours under forced colours) and keep `--ws-surface` current
      * unless the site set it.
+     * @returns Whether the canvas colours changed.
      * @internal
      */
-    _resolveColors(): void {
+    _resolveColors(): boolean {
+        const before = this.colors;
         if (this._autoSurface || !getComputedStyle(this.container).getPropertyValue('--ws-surface').trim()) {
             this._autoSurface = true;
             this.container.style.removeProperty('--ws-surface');
@@ -619,6 +634,7 @@ export class WaveformSounds {
             wave: (forced ? resolveCssColor(this.container, 'CanvasText') : this.options.waveformColor || resolveCssColor(this.container, 'var(--ws-wave-color)')) || 'rgba(128,128,128,.5)',
             progress: (forced ? resolveCssColor(this.container, 'Highlight') : this.options.progressColor || resolveCssColor(this.container, 'var(--ws-progress-color)')) || 'currentColor',
         };
+        return !before || before.wave !== this.colors.wave || before.progress !== this.colors.progress;
     }
 
     /**
@@ -629,7 +645,10 @@ export class WaveformSounds {
         if (this.render.player !== 'inline' || index == null || !this._drawn?.has(index)) return;
         const row = this.rows[index];
         const canvas = row?.querySelector('canvas');
-        if (!canvas || row.hidden) return;
+        if (!canvas) return;
+        // Hidden (filtered, or past the page): draw it when it shows again.
+        if (row.hidden) { this._dirty?.add(index); return; }
+        this._dirty?.delete(index);
         const gap = Number(this.options.barGap);
         drawRowWaveform(canvas, this.sounds[index].peaks, index === this.currentIndex ? this.progress : 0, {
             style: this.options.waveformStyle,
@@ -641,11 +660,17 @@ export class WaveformSounds {
     }
 
     /**
-     * Redraw every row drawn so far.
+     * After a resize or a theme flip: redraw the rows on screen now, and
+     * mark the rest stale — each is redrawn when it scrolls back in. (With
+     * 1000 rows drawn, redrawing them all took ~0.4s in Chrome and ~1.9s in
+     * WebKit per resize step.)
      * @internal
      */
     _redrawAll(): void {
-        this._drawn?.forEach((i) => this._drawRow(i));
+        this._drawn?.forEach((i) => {
+            if (this._onScreen && !this._onScreen.has(i)) this._dirty!.add(i);
+            else this._drawRow(i);
+        });
     }
 
     /* ── Filters in the address ───────────────────────────────────────── */
@@ -876,14 +901,16 @@ export class WaveformSounds {
             console.error(`${LOG} @arraypress/waveform-player is required: load it before playing (or pass playerClass).`);
             return null;
         }
-        (this as Writable<WaveformSounds>).engine = new Player(this._engineMount(), engineOptions(this.options.playerOptions, this.render.player, {
+        const options = engineOptions(this.options.playerOptions, this.render.player, {
             onLoad: () => this._onEngineLoad(),
             onPlay: () => this._setPlaying(true),
             onPause: () => this._setPlaying(false),
             onEnd: () => this._onEnd(),
             onTimeUpdate: (time: number, duration: number) => this._onTime(time, duration),
             onError: (err: unknown) => this._onEngineError(err),
-        }));
+        });
+        this._preload = options.preload;
+        (this as Writable<WaveformSounds>).engine = new Player(this._engineMount(), options);
         return this.engine as Engine;
     }
 
@@ -913,14 +940,16 @@ export class WaveformSounds {
         if (previous != null) this._paintRow(previous);
         this._paintRow(index);
         const sound = this.sounds[index];
-        engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true));
+        engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true, this._preload));
     }
 
     /**
      * Strip layout: load the first sound the list shows into the docked
      * player WITHOUT playing it, so the player shows a title and waveform
      * (and its play button plays that sound) instead of an empty frame.
-     * Only metadata is fetched — the browser default for any `<audio>`.
+     * Nothing is fetched (`preload: 'none'`): the player shows the title,
+     * length and peaks from the data, and the audio loads on play — a filter
+     * change re-cues, and each cue used to fetch a file's metadata.
      * The row isn't marked current until it plays.
      * @internal
      */
@@ -933,7 +962,19 @@ export class WaveformSounds {
         this.currentIndex = index;
         this.progress = 0;
         this._cued = true;
-        engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, 'strip', false));
+        // Firefox fetches a source set in the same task as a script's
+        // load(), whatever `preload` says — and the core's loadTrack() resets
+        // the element with load() before setting the new source. Nothing
+        // plays yet, so that reset can go: setting `src` (which the core
+        // does too) restarts the element's load on its own.
+        const audio = engine.audio;
+        const shim = audio && typeof audio.load === 'function';
+        if (shim) audio!.load = () => {};
+        try {
+            engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, 'strip', false, 'none'));
+        } finally {
+            if (shim) delete (audio as Partial<HTMLAudioElement>).load;
+        }
     }
 
     /** Pause the current sound. */

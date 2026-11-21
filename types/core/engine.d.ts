@@ -45,6 +45,7 @@ export interface EngineTrack {
     autoplay: boolean;
     duration?: number;
     downloadUrl?: string;
+    preload?: string;
 }
 /**
  * The `loadTrack()` options for a sound: its peaks (see {@link enginePeaks}),
@@ -53,9 +54,15 @@ export interface EngineTrack {
  * which with `preload: 'none'` is only once it plays — and its download
  * link, so a `showDownload` engine offers what the row offers.
  *
+ * `preload` is given every time because the core keeps the last one: the
+ * strip CUES its first sound with `'none'` (it shows the title, length and
+ * peaks from the data, and fetches nothing until it plays), and the next
+ * sound played must get the engine's own preload back.
+ *
  * @param sound
  * @param layout
  * @param autoplay - Start once loaded (false: cue only).
+ * @param preload - The media element's `preload` for this sound.
  * @returns
  */
 export declare function engineTrack(sound: {
@@ -63,5 +70,5 @@ export declare function engineTrack(sound: {
     waveform: string | null;
     duration: number | null;
     download: string | null;
-}, layout: 'inline' | 'strip', autoplay: boolean): EngineTrack;
+}, layout: 'inline' | 'strip', autoplay: boolean, preload?: string): EngineTrack;
 //# sourceMappingURL=engine.d.ts.map
