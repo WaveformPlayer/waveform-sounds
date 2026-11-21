@@ -13,9 +13,9 @@
 /**
  * Size a canvas to its box at the device pixel ratio. Returns the CSS size,
  * or null when the canvas has no box (hidden row, jsdom).
- * @param {HTMLCanvasElement} canvas
+ * @param canvas
  */
-export function fitCanvas(canvas) {
+export function fitCanvas(canvas: HTMLCanvasElement) {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -28,10 +28,10 @@ export function fitCanvas(canvas) {
 /**
  * Resample peaks to `count` bars (max of each bucket, so transients
  * survive the downsample).
- * @param {number[]} peaks
- * @param {number} count
+ * @param peaks
+ * @param count
  */
-export function resample(peaks, count) {
+export function resample(peaks: number[], count: number) {
     if (!peaks?.length || count <= 0) return [];
     if (peaks.length === count) return peaks;
     const out = new Array(count);
@@ -54,13 +54,13 @@ export function resample(peaks, count) {
  * Bars are normalised to the loudest one, so a quiet one-shot isn't a
  * flat line, and never shorter than 4% of the height.
  *
- * @param {number[]} peaks - 0..1.
- * @param {number} width - Canvas width (CSS px).
- * @param {number} height - Canvas height (CSS px).
- * @param {{style: 'mirror'|'bars', barWidth: number, barGap: number}} o
- * @returns {{x: number, y: number, w: number, h: number}[]}
+ * @param peaks - 0..1.
+ * @param width - Canvas width (CSS px).
+ * @param height - Canvas height (CSS px).
+ * @param o
+ * @returns 
  */
-export function barRects(peaks, width, height, o) {
+export function barRects(peaks: number[], width: number, height: number, o: {style: 'mirror'|'bars', barWidth: number, barGap: number}): {x: number, y: number, w: number, h: number}[] {
     const step = o.barWidth + o.barGap;
     const bars = resample(peaks, Math.max(1, Math.floor((width + o.barGap) / step)));
     const max = bars.reduce((m, b) => (b > m ? b : m), 0);
@@ -84,16 +84,16 @@ export function barRects(peaks, width, height, o) {
  * loop across ~120 bars moved in ~15 jumps a second however fast it was
  * redrawn).
  *
- * @param {HTMLCanvasElement} canvas
- * @param {number[]|null} peaks - 0..1. Null draws a flat placeholder line.
- * @param {number} progress - 0..1 played.
- * @param {{style: 'mirror'|'bars', color: string, progressColor: string, barWidth: number, barGap: number}} o
+ * @param canvas
+ * @param peaks - 0..1. Null draws a flat placeholder line.
+ * @param progress - 0..1 played.
+ * @param o
  */
-export function drawRowWaveform(canvas, peaks, progress, o) {
+export function drawRowWaveform(canvas: HTMLCanvasElement, peaks: number[] | null, progress: number, o: {style: 'mirror'|'bars', color: string, progressColor: string, barWidth: number, barGap: number}) {
     const size = fitCanvas(canvas);
     const ctx = size && canvas.getContext && canvas.getContext('2d');
     if (!ctx) return;
-    const {width, height, dpr} = size;
+    const {width, height, dpr} = size!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 

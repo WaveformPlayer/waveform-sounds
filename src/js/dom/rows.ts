@@ -6,6 +6,7 @@
  */
 
 import {normalizeSound} from '../data/sounds.js';
+import type {Sound} from '../types.js';
 
 /** A list's row elements, in DOM order. */
 const ROW = ':scope > [data-ws-index]';
@@ -16,13 +17,13 @@ const ROW = ':scope > [data-ws-index]';
  * data is unusable (no url) is removed — so a row missing from the markup
  * can't leave a hole that would misalign rows and sounds.
  *
- * @param {HTMLElement} list - The `[data-ws-list]` element.
- * @returns {import('../../../index').Sound[]}
+ * @param list - The `[data-ws-list]` element.
+ * @returns 
  */
-export function readRows(list) {
-    const rows = [...list.querySelectorAll(ROW)]
+export function readRows(list: HTMLElement): Sound[] {
+    const rows = [...list.querySelectorAll<HTMLElement>(ROW)]
         .sort((a, b) => Number(a.dataset.wsIndex) - Number(b.dataset.wsIndex));
-    const sounds = [];
+    const sounds: Sound[] = [];
     for (const row of rows) {
         const d = row.dataset;
         const sound = normalizeSound({
@@ -40,12 +41,12 @@ export function readRows(list) {
  * The row elements, indexed by the sound each one shows (whatever order
  * they're displayed in).
  *
- * @param {HTMLElement} list
- * @returns {HTMLElement[]}
+ * @param list
+ * @returns 
  */
-export function indexRows(list) {
-    const rows = [];
-    list.querySelectorAll(ROW).forEach((row) => { rows[Number(row.dataset.wsIndex)] = row; });
+export function indexRows(list: HTMLElement): HTMLElement[] {
+    const rows: HTMLElement[] = [];
+    list.querySelectorAll<HTMLElement>(ROW).forEach((row) => { rows[Number(row.dataset.wsIndex)] = row; });
     return rows;
 }
 
@@ -53,21 +54,21 @@ export function indexRows(list) {
  * The rows currently visible (not hidden by the filter or the page), in
  * display order.
  *
- * @param {HTMLElement} list
- * @returns {HTMLElement[]}
+ * @param list
+ * @returns 
  */
-export function visibleRows(list) {
-    return [...list.querySelectorAll(ROW)].filter((r) => !r.hidden);
+export function visibleRows(list: HTMLElement): HTMLElement[] {
+    return [...list.querySelectorAll<HTMLElement>(ROW)].filter((r) => !r.hidden);
 }
 
 /**
  * Put the rows in the given order. Every row moves (hidden ones too), so
  * clearing a filter keeps the order.
  *
- * @param {HTMLElement} list
- * @param {HTMLElement[]} rows - In the order to show them.
+ * @param list
+ * @param rows - In the order to show them.
  */
-export function orderRows(list, rows) {
+export function orderRows(list: HTMLElement, rows: HTMLElement[]) {
     const frag = document.createDocumentFragment();
     for (const row of rows) if (row) frag.appendChild(row);
     list.appendChild(frag);

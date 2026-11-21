@@ -11,10 +11,10 @@
  * `rgb(1 2 3 / 50%)`, `oklab(… / 0.9)`, `transparent`. Opaque when no alpha
  * is written.
  *
- * @param {string|null|undefined} color
- * @returns {number} 0..1.
+ * @param color
+ * @returns 0..1.
  */
-export function parseAlpha(color) {
+export function parseAlpha(color: string | null | undefined): number {
     const c = String(color ?? '').trim();
     if (!c || c === 'transparent') return 0;
     const slash = c.match(/\/\s*([\d.]+)(%?)\s*\)$/);
@@ -28,12 +28,12 @@ export function parseAlpha(color) {
  * The first (near-)opaque background at or above an element — the page
  * surface the list sits on. Crosses shadow-root boundaries.
  *
- * @param {Element} el
- * @param {number} [minAlpha=0.95] - How opaque counts as "the surface".
- * @returns {string} A computed colour, or `#fff` when nothing is painted.
+ * @param el
+ * @param minAlpha - How opaque counts as "the surface".
+ * @returns A computed colour, or `#fff` when nothing is painted.
  */
-export function pageSurface(el, minAlpha = 0.95) {
-    for (let node = el; node && node.nodeType === 1; node = node.parentElement || node.getRootNode?.().host) {
+export function pageSurface(el: Element, minAlpha: number = 0.95): string {
+    for (let node = el; node && node.nodeType === 1; node = node.parentElement || (node as any).getRootNode?.().host) {
         const bg = getComputedStyle(node).backgroundColor;
         if (parseAlpha(bg) > minAlpha) return bg;
     }
@@ -44,11 +44,11 @@ export function pageSurface(el, minAlpha = 0.95) {
  * Resolve any CSS colour (a `var()`, `color-mix()`, `currentColor`) to a
  * concrete value, as it would compute inside `container`.
  *
- * @param {Element} container
- * @param {string} value - A CSS colour expression.
- * @returns {string} The computed colour.
+ * @param container
+ * @param value - A CSS colour expression.
+ * @returns The computed colour.
  */
-export function resolveCssColor(container, value) {
+export function resolveCssColor(container: Element, value: string): string {
     const probe = document.createElement('span');
     probe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden';
     probe.style.color = value;
