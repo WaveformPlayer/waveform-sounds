@@ -4,7 +4,7 @@ All notable changes to `@arraypress/waveform-sounds` are documented here. The
 format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.2.0] — 2026-11-22
 
 A lighter, quieter list: rows exist only while shown, icons are defined
 once, a screen reader hears one seek slider and whole sentences, and
