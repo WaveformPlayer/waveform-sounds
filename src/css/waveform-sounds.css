@@ -43,6 +43,14 @@
     color: inherit;
     font: inherit;
 }
+/* The inverse above is relative colour: Chrome 122, Firefox 128, Safari 18,
+ * all newer than the 2.0 floor. Where it's invalid, until the runtime
+ * measures --ws-surface (a server-rendered first paint, or no script), the
+ * ink would be the text colour on a text-colour fill: use the system
+ * background instead, as the dropdowns do. */
+@supports not (color: rgb(from red calc(255 - r) calc(255 - g) calc(255 - b))) {
+    .waveform-sounds { --ws-on-accent: var(--ws-surface, Canvas); }
+}
 .waveform-sounds *, .waveform-sounds *::before, .waveform-sounds *::after { box-sizing: border-box; }
 .waveform-sounds [hidden] { display: none !important; }
 
