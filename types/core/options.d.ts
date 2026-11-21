@@ -2,8 +2,10 @@
  * The runtime's option surface: every option with its default, the
  * `data-*` form a container (or a server-rendering wrapper) uses, and the
  * merge that resolves them. The options that shape the markup are defined
- * with the renderer (`render/options.js`) and included here. `index.d.ts` documents each option; the wrappers' drift
- * guards compare their forwarding against `DEFAULT_OPTIONS`.
+ * with the renderer (`render/options.ts`) and included here. `types.ts`
+ * documents each option; the wrappers' drift guards compare their
+ * forwarding against `WaveformSoundsOptions` (in the generated
+ * `types/types.d.ts`).
  *
  * Precedence, as across the waveform family: data-* > constructor > default.
  *
