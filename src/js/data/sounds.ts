@@ -1,4 +1,5 @@
 import {fold, matchesAll, words} from '@arraypress/text';
+import type {Sound, SoundInput, SoundsFilter, SoundsManifest, SoundsSort} from '../types.js';
 
 /**
  * Pure data helpers: no DOM, no window. Shared by the browser runtime and
@@ -15,10 +16,10 @@ import {fold, matchesAll, words} from '@arraypress/text';
  * sound: 300 sounds is ~30 KB in a manifest or in row attributes, against
  * ~3x that as a JSON number array.
  *
- * @param {number[]} peaks - Values 0..1.
- * @returns {string} Hex string.
+ * @param peaks - Values 0..1.
+ * @returns Hex string.
  */
-export function encodePeaks(peaks) {
+export function encodePeaks(peaks: number[]): string {
     if (!Array.isArray(peaks)) return '';
     let out = '';
     for (const p of peaks) {
@@ -35,11 +36,11 @@ export function encodePeaks(peaks) {
  * numbers, or an array of integers on a larger scale (e.g. 0..100 or
  * 0..255) together with that `scale`.
  *
- * @param {string|number[]|null|undefined} value
- * @param {number} [scale=1] - The maximum of an integer array.
- * @returns {number[]|null} Peaks, or null when there are none.
+ * @param value
+ * @param scale - The maximum of an integer array.
+ * @returns Peaks, or null when there are none.
  */
-export function decodePeaks(value, scale = 1) {
+export function decodePeaks(value: string | number[] | null | undefined, scale: number = 1): number[] | null {
     if (value == null || value === '') return null;
     if (typeof value === 'string') {
         if (!/^[0-9a-f]+$/i.test(value) || value.length % 2) return null;
@@ -59,10 +60,10 @@ export function decodePeaks(value, scale = 1) {
  * "C# Major", "C♯" → "C#". Anything unparseable comes back trimmed, as
  * given, so an unusual label still displays.
  *
- * @param {string|null|undefined} key
- * @returns {string} Canonical key, or '' for none.
+ * @param key
+ * @returns Canonical key, or '' for none.
  */
-export function normalizeKey(key) {
+export function normalizeKey(key: string | null | undefined): string {
     if (key == null) return '';
     const raw = String(key).trim();
     const m = raw.match(/^([A-Ga-g])[\s_-]*([#♯b♭]?)[\s_-]*(m|min|minor|maj|major)?$/i);
@@ -74,10 +75,10 @@ export function normalizeKey(key) {
 }
 
 /** Pitch class of each root, for sorting keys: C, C#, D … B, majors before minors. */
-const KEY_PITCH = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
+const KEY_PITCH: Record<string, number> = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
 
 /** Sort rank of a canonical key; unknown keys sort last. */
-function keyRank(key) {
+function keyRank(key: string): number {
     if (!key) return Infinity;
     const minor = key.endsWith('m');
     const root = minor ? key.slice(0, -1) : key;
@@ -92,12 +93,12 @@ function keyRank(key) {
  * A one-shot (a kick, a hat) is often shorter than a second, and m:ss would
  * round it to "0:00", which reads as a missing length.
  *
- * @param {number|null|undefined} seconds
- * @returns {string} e.g. "0:08", "0.4s", or '' when unknown.
+ * @param seconds
+ * @returns e.g. "0:08", "0.4s", or '' when unknown.
  */
-export function formatDuration(seconds) {
+export function formatDuration(seconds: number | null | undefined): string {
     // Number(null) is 0: an unknown length must not render as "0:00".
-    if (seconds == null || seconds === '') return '';
+    if (seconds == null || (seconds as unknown) === '') return '';
     const s = Number(seconds);
     if (!Number.isFinite(s) || s < 0) return '';
     // Anything that would round to "1.0s" is shown as "0:01" instead.
@@ -110,10 +111,10 @@ export function formatDuration(seconds) {
 
 /**
  * Parse a duration given as seconds (8.02) or as "m:ss" / "h:mm:ss".
- * @param {number|string|null|undefined} value
- * @returns {number|null}
+ * @param value
+ * @returns 
  */
-export function parseDuration(value) {
+export function parseDuration(value: number | string | null | undefined): number | null {
     if (value == null || value === '') return null;
     if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
     const str = String(value).trim();
@@ -127,10 +128,10 @@ export function parseDuration(value) {
  * The title a file name implies: extension and separators dropped,
  * leading pack prefixes kept (they are often the label's code).
  * "NW_Bass_Loop_04_128_Fmin.wav" → "NW Bass Loop 04 128 Fmin".
- * @param {string} url
- * @returns {string}
+ * @param url
+ * @returns 
  */
-export function titleFromUrl(url) {
+export function titleFromUrl(url: string): string {
     const file = String(url || '').split(/[?#]/)[0].split('/').pop() || '';
     let name = file.replace(/\.[a-z0-9]+$/i, '');
     try { name = decodeURIComponent(name); } catch { /* keep as is */ }
@@ -140,14 +141,14 @@ export function titleFromUrl(url) {
 /**
  * Normalise one sound into the shape the runtime and renderer use.
  *
- * @param {Object} input - A sound: `{url, title?, type?, bpm?, key?,
+ * @param input - A sound: `{url, title?, type?, bpm?, key?,
  *   duration?, tags?, peaks?, waveform?, download?, loop?, id?}`.
- * @param {number} index - Its position (used for a fallback id).
- * @param {number} [peakScale=1] - Scale of an integer `peaks` array.
- * @returns {import('../../../index').Sound|null} The sound, or null if it has
+ * @param index - Its position (used for a fallback id).
+ * @param peakScale - Scale of an integer `peaks` array.
+ * @returns The sound, or null if it has
  *   no url.
  */
-export function normalizeSound(input, index, peakScale = 1) {
+export function normalizeSound(input: Record<string, any>, index: number, peakScale: number = 1): Sound | null {
     if (!input || typeof input !== 'object' || !input.url) return null;
     const bpm = Number(input.bpm);
     const tags = Array.isArray(input.tags)
@@ -181,10 +182,10 @@ export const LOOP_FILTERS = ['loop', 'one-shot'];
  * Is this a loop? Only an explicit yes counts: `true`, or `"true"` / `"1"`
  * as an attribute or a CSV-ish manifest writes it. Unset is a one-shot.
  *
- * @param {unknown} value
- * @returns {boolean}
+ * @param value
+ * @returns 
  */
-export function isLoop(value) {
+export function isLoop(value: unknown): boolean {
     return value === true || value === 1 || value === 'true' || value === '1';
 }
 
@@ -193,10 +194,10 @@ export function isLoop(value) {
  * (what `waveform-gen --manifest` writes) or a bare array of sounds.
  * Sounds without a url are dropped.
  *
- * @param {Object|Array} manifest
- * @returns {import('../../../index').Sound[]}
+ * @param manifest
+ * @returns 
  */
-export function parseManifest(manifest) {
+export function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[] {
     const list = Array.isArray(manifest) ? manifest : Array.isArray(manifest?.sounds) ? manifest.sounds : [];
     const scale = Array.isArray(manifest) ? 1 : Number(manifest?.peakScale) || 1;
     return normalizeSounds(list, scale);
@@ -205,13 +206,13 @@ export function parseManifest(manifest) {
 /**
  * Normalise a list of sounds, dropping invalid ones and de-duplicating ids
  * (a repeated id would make two rows answer to one play() call).
- * @param {Array} list
- * @param {number} [peakScale=1]
- * @returns {import('../../../index').Sound[]}
+ * @param list
+ * @param peakScale
+ * @returns 
  */
-export function normalizeSounds(list, peakScale = 1) {
-    const seen = new Set();
-    const out = [];
+export function normalizeSounds(list: SoundInput[], peakScale: number = 1): Sound[] {
+    const seen = new Set<string>();
+    const out: Sound[] = [];
     (Array.isArray(list) ? list : []).forEach((item, i) => {
         const s = normalizeSound(item, i, peakScale);
         if (!s) return;
@@ -230,12 +231,12 @@ export function normalizeSounds(list, peakScale = 1) {
  * range, and how many are loops and one-shots. A control with nothing to
  * offer is not rendered.
  *
- * @param {import('../../../index').Sound[]} sounds
- * @returns {{types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number}}
+ * @param sounds
+ * @returns 
  */
-export function facets(sounds) {
-    const types = new Map();
-    const keys = new Set();
+export function facets(sounds: Sound[]): {types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number} {
+    const types = new Map<string, number>();
+    const keys = new Set<string>();
     let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
     for (const s of sounds) {
         if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
@@ -264,11 +265,11 @@ export function facets(sounds) {
  * number in the query also matches the BPM exactly, so "bass 128" finds
  * 128 BPM bass loops.
  *
- * @param {import('../../../index').Sound} sound
- * @param {import('../../../index').SoundsFilter} filter
- * @returns {boolean}
+ * @param sound
+ * @param filter
+ * @returns 
  */
-export function matches(sound, filter = {}) {
+export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}): boolean {
     if (filter.type && sound.type !== filter.type) return false;
     if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
     if (filter.loop === 'loop' && !sound.loop) return false;
@@ -296,7 +297,7 @@ export function matches(sound, filter = {}) {
 export const SORTS = ['default', 'title', 'bpm', 'key', 'duration'];
 
 /** What each sort order needs from the data before it's worth offering. */
-const SORT_NEEDS = {
+const SORT_NEEDS: Record<string, (f: ReturnType<typeof facets>) => boolean> = {
     default: () => true,
     title: () => true,
     bpm: (f) => f.bpm !== null,
@@ -309,11 +310,11 @@ const SORT_NEEDS = {
  * in the configured order. Shared by the renderer and the runtime, so the
  * menu and the starting order always agree.
  *
- * @param {string[]} sorts - The configured orders.
- * @param {ReturnType<typeof facets>} f - The sounds' facets.
- * @returns {string[]}
+ * @param sorts - The configured orders.
+ * @param f - The sounds' facets.
+ * @returns 
  */
-export function availableSorts(sorts, f) {
+export function availableSorts(sorts: string[], f: ReturnType<typeof facets>): string[] {
     return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
 }
 
@@ -321,19 +322,19 @@ export function availableSorts(sorts, f) {
  * Sort sounds (returns a new array; `default` keeps the given order).
  * Missing values sort last in every order.
  *
- * @param {import('../../../index').Sound[]} sounds
- * @param {string} [by='default']
- * @returns {import('../../../index').Sound[]}
+ * @param sounds
+ * @param by
+ * @returns 
  */
-export function sortSounds(sounds, by = 'default') {
+export function sortSounds(sounds: Sound[], by: SoundsSort = 'default'): Sound[] {
     const list = sounds.map((s, i) => ({s, i}));
-    const last = (v) => (v == null ? Infinity : v);
-    const cmp = {
+    const last = (v: number | null): number => (v == null ? Infinity : v);
+    const cmp = ({
         title: (a, b) => a.s.title.localeCompare(b.s.title, undefined, {numeric: true, sensitivity: 'base'}),
         bpm: (a, b) => last(a.s.bpm) - last(b.s.bpm),
         key: (a, b) => keyRank(a.s.key) - keyRank(b.s.key),
         duration: (a, b) => last(a.s.duration) - last(b.s.duration),
-    }[by];
+    } as Record<string, (a: {s: Sound, i: number}, b: {s: Sound, i: number}) => number>)[by];
     if (cmp) list.sort((a, b) => cmp(a, b) || a.i - b.i);
     return list.map((x) => x.s);
 }
