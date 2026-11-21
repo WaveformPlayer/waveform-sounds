@@ -7,9 +7,10 @@
  */
 
 import {bpmRangeFromFilter, hasBpmFilter} from '../data/bpm.js';
+import type {SoundsSort, WaveformSoundsStrings} from '../types.js';
 
 /** The English defaults. */
-export const DEFAULT_STRINGS = {
+export const DEFAULT_STRINGS: WaveformSoundsStrings = {
     search: 'Search sounds',
     searchPlaceholder: 'Search sounds…',
     all: 'All',
@@ -51,7 +52,7 @@ export const DEFAULT_STRINGS = {
 };
 
 /** The label each sort order shows in the Sort menu. */
-export const SORT_LABEL_KEYS = {
+export const SORT_LABEL_KEYS: Record<SoundsSort, keyof WaveformSoundsStrings> = {
     default: 'sortDefault',
     title: 'sortTitle',
     bpm: 'sortBpm',
@@ -62,11 +63,11 @@ export const SORT_LABEL_KEYS = {
 /**
  * Fill `{name}` placeholders; unknown ones are left as written.
  *
- * @param {string} template
- * @param {Record<string, string|number>} [vars]
- * @returns {string}
+ * @param template
+ * @param vars
+ * @returns 
  */
-export function fill(template, vars = {}) {
+export function fill(template: string, vars: Record<string, string|number> = {}): string {
     return String(template).replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
 }
 
@@ -74,12 +75,12 @@ export function fill(template, vars = {}) {
  * The BPM menu's label: "Any BPM", or the range the handles hold
  * ("120–128 BPM"; an open end shows the pack's own end).
  *
- * @param {{bpmMin?: string|number, bpmMax?: string|number}} filter
- * @param {{min: number, max: number}} extent - The pack's BPM range.
- * @param {typeof DEFAULT_STRINGS} [strings]
- * @returns {string}
+ * @param filter
+ * @param extent - The pack's BPM range.
+ * @param strings
+ * @returns 
  */
-export function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
+export function bpmLabel(filter: {bpmMin?: string|number, bpmMax?: string|number}, extent: {min: number, max: number}, strings: typeof DEFAULT_STRINGS = DEFAULT_STRINGS): string {
     if (!hasBpmFilter(filter)) return strings.anyBpm;
     const {lo, hi} = bpmRangeFromFilter(filter, extent);
     return fill(strings.bpmRange, {min: lo, max: hi});
@@ -88,12 +89,12 @@ export function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
 /**
  * The count line: "300 sounds", "1 sound", "12 of 300 sounds".
  *
- * @param {number} shown - Sounds matching the filter.
- * @param {number} total - All sounds.
- * @param {typeof DEFAULT_STRINGS} [strings]
- * @returns {string}
+ * @param shown - Sounds matching the filter.
+ * @param total - All sounds.
+ * @param strings
+ * @returns 
  */
-export function countText(shown, total, strings = DEFAULT_STRINGS) {
+export function countText(shown: number, total: number, strings: typeof DEFAULT_STRINGS = DEFAULT_STRINGS): string {
     if (shown !== total) return fill(strings.countFiltered, {count: shown, total});
     return total === 1 ? strings.countOne : fill(strings.count, {count: total});
 }

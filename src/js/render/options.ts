@@ -8,6 +8,7 @@
 
 import {SORTS} from '../data/sounds.js';
 import {DEFAULT_STRINGS} from './strings.js';
+import type {WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 /** The filter controls a list can offer. */
 export const FILTERS = ['type', 'key', 'bpm', 'loop'];
@@ -29,16 +30,20 @@ export const RENDER_DEFAULTS = {
     maxTypeChips: 10,
 };
 
+/** {@link resolveRenderOptions}' result: the render options, complete, plus
+ *  whatever else the caller passed. */
+export type RenderOptions = typeof RENDER_DEFAULTS & {strings: WaveformSoundsStrings, idPrefix?: string, loop?: boolean | null};
+
 /**
  * The object without its `undefined` entries (so spreading it can't erase
  * a default).
  *
- * @param {Object|null|undefined} obj
- * @returns {Object}
+ * @param obj
+ * @returns 
  */
-export function defined(obj) {
-    const out = {};
-    for (const k in obj ?? {}) if (obj[k] !== undefined) out[k] = obj[k];
+export function defined(obj: Record<string, any> | null | undefined): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const k in obj ?? {}) if (obj![k] !== undefined) out[k] = obj![k];
     return out;
 }
 
@@ -46,23 +51,23 @@ export function defined(obj) {
  * The entries of `values` that are allowed, in the caller's order; the
  * fallback when `values` isn't a list.
  *
- * @param {unknown} values
- * @param {string[]} allowed
- * @param {string[]} fallback
- * @returns {string[]}
+ * @param values
+ * @param allowed
+ * @param fallback
+ * @returns 
  */
-export function allowedList(values, allowed, fallback) {
+export function allowedList(values: unknown, allowed: string[], fallback: string[]): string[] {
     return Array.isArray(values) ? values.filter((v) => allowed.includes(v)) : fallback;
 }
 
 /**
  * A whole number ≥ 0, or the fallback.
  *
- * @param {unknown} value
- * @param {number} fallback
- * @returns {number}
+ * @param value
+ * @param fallback
+ * @returns 
  */
-export function wholeNumber(value, fallback) {
+export function wholeNumber(value: unknown, fallback: number): number {
     const n = Number(value);
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
 }
@@ -71,10 +76,10 @@ export function wholeNumber(value, fallback) {
  * The render options, defaulted and validated: unknown filters, sorts and
  * columns are dropped, counts are whole numbers, `strings` is complete.
  *
- * @param {Object} [options]
- * @returns {typeof RENDER_DEFAULTS & {strings: typeof DEFAULT_STRINGS, idPrefix?: string}}
+ * @param options
+ * @returns 
  */
-export function resolveRenderOptions(options = {}) {
+export function resolveRenderOptions(options: WaveformSoundsOptions = {}): RenderOptions {
     const o = {...RENDER_DEFAULTS, ...defined(options)};
     return {
         ...o,

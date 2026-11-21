@@ -9,11 +9,11 @@
 /**
  * One icon.
  *
- * @param {string} path - The SVG path data.
- * @param {string} [extraClass] - Classes beyond `ws-icon`.
- * @returns {string}
+ * @param path - The SVG path data.
+ * @param extraClass - Classes beyond `ws-icon`.
+ * @returns 
  */
-function icon(path, extraClass = '') {
+function icon(path: string, extraClass: string = ''): string {
     const cls = extraClass ? `ws-icon ${extraClass}` : 'ws-icon';
     return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
 }

@@ -22,6 +22,7 @@ import {ICONS} from './icons.js';
 import {RENDER_DEFAULTS, resolveRenderOptions} from './options.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
 import {hashString} from '../shared/utils.js';
+import type {Sound, SoundInput, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 export {escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts};
 
@@ -30,10 +31,10 @@ export {escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, coun
  * the server and in the browser. Two lists of the SAME sounds on one page
  * collide, so they need an `idPrefix` each.
  *
- * @param {{url: string}[]} sounds
- * @returns {string} e.g. `ws1x9k2f`.
+ * @param sounds
+ * @returns e.g. `ws1x9k2f`.
  */
-export function idBase(sounds) {
+export function idBase(sounds: {url: string}[]): string {
     const signature = [sounds.length, ...sounds.map((s) => s.url)].join('|');
     return `ws${hashString(signature).toString(36)}`;
 }
@@ -46,11 +47,11 @@ export function idBase(sounds) {
  * one usable order. Types past `maxTypeChips` become a menu (a
  * pack has a handful; a whole library can have fifty).
  *
- * @param {ReturnType<typeof facets>} f - The sounds' facets.
- * @param {ReturnType<typeof resolveRenderOptions>} o - Resolved options.
- * @returns {{types: 'chips'|'menu'|null, key: boolean, bpm: boolean, loops: boolean, sorts: string[], search: boolean, loop: boolean, count: boolean}}
+ * @param f - The sounds' facets.
+ * @param o - Resolved options.
+ * @returns 
  */
-export function toolbarPlan(f, o) {
+export function toolbarPlan(f: ReturnType<typeof facets>, o: ReturnType<typeof resolveRenderOptions>): {types: 'chips'|'menu'|null, key: boolean, bpm: boolean, loops: boolean, sorts: string[], search: boolean, loop: boolean, count: boolean} {
     const typed = o.filters.includes('type') && f.types.length > 1;
     const sorts = availableSorts(o.sorts, f);
     return {
@@ -70,18 +71,39 @@ export function toolbarPlan(f, o) {
  * unset, it's on exactly when the list marks loops (only those repeat, so
  * a one-shot still plays once).
  *
- * @param {boolean|null|undefined} loop - The `loop` option.
- * @param {{loops: number}} f - The sounds' facets.
- * @returns {boolean}
+ * @param loop - The `loop` option.
+ * @param f - The sounds' facets.
+ * @returns 
  */
-export function loopsByDefault(loop, f) {
+export function loopsByDefault(loop: boolean | null | undefined, f: {loops: number}): boolean {
     return loop == null ? f.loops > 0 : !!loop;
+}
+
+/** What every part of the list's markup is built from ({@link renderSounds}). */
+interface RenderContext {
+    o: ReturnType<typeof resolveRenderOptions>;
+    s: WaveformSoundsStrings;
+    f: ReturnType<typeof facets>;
+    total: number;
+    id: string;
+}
+
+/** A dropdown's content ({@link renderMenu}). */
+export interface MenuSpec {
+    id: string;
+    label: string;
+    prefix?: string;
+    value: string;
+    options: {value: string, label: string, count?: number}[];
+    searchFrom: number;
+    placeholder?: string;
+    noMatches: string;
 }
 
 /* ── Controls ───────────────────────────────────────────────────────── */
 
 /** The search field. */
-function renderSearch(s) {
+function renderSearch(s: WaveformSoundsStrings): string {
     return h('label', {class: 'ws-search'},
         ICONS.search,
         h('span', {class: 'ws-sr'}, text(s.search)),
@@ -94,19 +116,19 @@ function renderSearch(s) {
  * has more than `searchFrom` options. The runtime (`menus.js`) opens,
  * filters and navigates it; without JS the button still shows the value.
  *
- * @param {string} name - 'type' | 'key' | 'sort' (the runtime routes by it).
- * @param {Object} m
- * @param {string} m.id - Id prefix for this list.
- * @param {string} m.label - Accessible name ("Type").
- * @param {string} [m.prefix] - Visible lead-in ("Sort by"); otherwise the label is screen-reader only.
- * @param {string} m.value - The selected value.
- * @param {{value: string, label: string, count?: number}[]} m.options
- * @param {number} m.searchFrom - Options above which a search field is added.
- * @param {string} [m.placeholder] - The search field's placeholder (no field without one).
- * @param {string} m.noMatches - Shown when the search matches nothing.
- * @returns {string}
+ * @param name - 'type' | 'key' | 'sort' (the runtime routes by it).
+ * @param m
+ * @param m.id - Id prefix for this list.
+ * @param m.label - Accessible name ("Type").
+ * @param [m.prefix] - Visible lead-in ("Sort by"); otherwise the label is screen-reader only.
+ * @param m.value - The selected value.
+ * @param m.options
+ * @param m.searchFrom - Options above which a search field is added.
+ * @param [m.placeholder] - The search field's placeholder (no field without one).
+ * @param m.noMatches - Shown when the search matches nothing.
+ * @returns 
  */
-export function renderMenu(name, m) {
+export function renderMenu(name: string, m: MenuSpec): string {
     const listId = `${m.id}-${name}-list`;
     const current = m.options.find((o) => o.value === m.value) ?? m.options[0];
     const searchable = m.placeholder && m.options.length > m.searchFrom;
@@ -145,15 +167,15 @@ export function renderMenu(name, m) {
  * range input (keyboard, screen readers and touch for free); the two share
  * one track. The runtime (`menus.js` + the core) wires it.
  *
- * @param {Object} m
- * @param {string} m.id - Id prefix for this list.
- * @param {typeof DEFAULT_STRINGS} m.s
- * @param {{min: number, max: number}} m.range - The pack's BPM range.
- * @returns {string}
+ * @param m
+ * @param m.id - Id prefix for this list.
+ * @param m.s
+ * @param m.range - The pack's BPM range.
+ * @returns 
  */
-function renderBpmMenu({id, s, range}) {
+function renderBpmMenu({id, s, range}: {id: string, s: WaveformSoundsStrings, range: {min: number, max: number}}): string {
     const popId = `${id}-bpm-pop`;
-    const handle = (attr, label, value) => h('input', {
+    const handle = (attr: string, label: string, value: number) => h('input', {
         type: 'range', class: 'ws-range-input', [attr]: true, 'aria-label': label,
         min: range.min, max: range.max, step: '1', value,
     });
@@ -180,20 +202,20 @@ function renderBpmMenu({id, s, range}) {
 /**
  * Loops or one-shots: three buttons, one pressed ('' = both).
  */
-function renderLoopFilter(s) {
-    const button = (value, label) => h('button', {type: 'button', class: 'ws-seg-btn', 'data-ws-loop-filter': value, 'aria-pressed': String(value === '')},
+function renderLoopFilter(s: WaveformSoundsStrings): string {
+    const button = (value: string, label: string) => h('button', {type: 'button', class: 'ws-seg-btn', 'data-ws-loop-filter': value, 'aria-pressed': String(value === '')},
         h('span', {}, text(label)));
     return h('div', {class: 'ws-seg', role: 'group', 'aria-label': s.loopFilter},
         button('', s.all), button('loop', s.loops), button('one-shot', s.oneShots));
 }
 
 /** The Loop toggle, pressed or not. */
-function renderLoopToggle(s, pressed) {
+function renderLoopToggle(s: WaveformSoundsStrings, pressed: boolean): string {
     return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': String(pressed)}, ICONS.loop, h('span', {}, text(s.loop)));
 }
 
 /** One type chip ('' = all). */
-function renderChip(value, label, count, pressed) {
+function renderChip(value: string, label: string, count: number, pressed: boolean): string {
     return h('button', {type: 'button', class: 'ws-chip', 'data-ws-type': value, 'aria-pressed': String(pressed)},
         h('span', {class: 'ws-chip-label'}, text(label)), ' ', h('span', {class: 'ws-chip-count'}, text(count)));
 }
@@ -202,12 +224,12 @@ function renderChip(value, label, count, pressed) {
  * The toolbar: search, the controls row (type menu, key menu, BPM range,
  * loops or one-shots, sort menu, Loop) and the meta row (type chips + the count).
  *
- * @param {ReturnType<typeof toolbarPlan>} plan
- * @param {Object} ctx - `{o, s, f, total, id}` from {@link renderSounds}.
- * @returns {string}
+ * @param plan
+ * @param ctx - `{o, s, f, total, id}` from {@link renderSounds}.
+ * @returns 
  */
-function renderToolbar(plan, {o, s, f, total, id}) {
-    const menu = (name, m) => renderMenu(name, {id, searchFrom: o.menuSearch, noMatches: s.noMatches, ...m});
+function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id}: RenderContext): string {
+    const menu = (name: string, m: Omit<MenuSpec, 'id' | 'searchFrom' | 'noMatches'>) => renderMenu(name, {id, searchFrom: o.menuSearch, noMatches: s.noMatches, ...m});
     const controls = [
         plan.types === 'menu' && menu('type', {
             label: s.types, value: '', placeholder: s.findType,
@@ -217,11 +239,11 @@ function renderToolbar(plan, {o, s, f, total, id}) {
             label: s.key, value: '', placeholder: s.findKey,
             options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k}))],
         }),
-        plan.bpm && renderBpmMenu({id, s, range: f.bpm}),
+        plan.bpm && renderBpmMenu({id, s, range: f.bpm!}),
         plan.loops && renderLoopFilter(s),
         plan.sorts.length > 0 && menu('sort', {
             label: s.sort, prefix: s.sortBy, value: plan.sorts[0],
-            options: plan.sorts.map((k) => ({value: k, label: s[SORT_LABEL_KEYS[k]]})),
+            options: plan.sorts.map((k) => ({value: k, label: s[SORT_LABEL_KEYS[k as SoundsSort]]})),
         }),
         plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f)),
     ].filter(Boolean);
@@ -243,7 +265,7 @@ function renderToolbar(plan, {o, s, f, total, id}) {
 /* ── Rows ───────────────────────────────────────────────────────────── */
 
 /** The cells a column shows for a sound. */
-const CELLS = {
+const CELLS: Record<string, (sound: Sound) => string> = {
     type: (sound) => text(sound.type),
     bpm: (sound) => text(sound.bpm ?? ''),
     key: (sound) => text(sound.key),
@@ -256,13 +278,13 @@ const CELLS = {
  * sorted into. Every field is also written as a `data-*` attribute, so the
  * runtime can rebuild the sounds from server markup.
  *
- * @param {import('../../../index').Sound} sound - Normalised.
- * @param {number} index
- * @param {ReturnType<typeof resolveRenderOptions>} o
- * @param {boolean} [hidden] - Past the first page.
- * @returns {string}
+ * @param sound - Normalised.
+ * @param index
+ * @param o
+ * @param hidden - Past the first page.
+ * @returns 
  */
-export function renderRow(sound, index, o, hidden = false) {
+export function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, hidden: boolean = false): string {
     const s = o.strings;
     const vars = {title: sound.title};
     const cells = o.columns.map((c) => h('span', {class: `ws-cell ws-${c}`}, CELLS[c](sound)));
@@ -306,7 +328,7 @@ export function renderRow(sound, index, o, hidden = false) {
  * What follows the rows: the empty state, "Show more", the engine's slot
  * (visible only in the strip layout) and a live region for announcements.
  */
-function renderFooter({o, s, total}) {
+function renderFooter({o, s, total}: RenderContext): string {
     const page = o.pageSize > 0 ? o.pageSize : total;
     const more = Math.max(0, total - page);
     const strip = o.player === 'strip';
@@ -322,14 +344,14 @@ function renderFooter({o, s, total}) {
 /**
  * The whole component's inner markup.
  *
- * @param {Object[]} sounds - Sounds (normalised or raw; normalised here).
- * @param {Object} [options] - Render options (see `WaveformSoundsOptions`).
- * @returns {string} HTML for the inside of `[data-waveform-sounds]`.
+ * @param sounds - Sounds (normalised or raw; normalised here).
+ * @param options - Render options (see `WaveformSoundsOptions`).
+ * @returns HTML for the inside of `[data-waveform-sounds]`.
  */
-export function renderSounds(sounds, options = {}) {
+export function renderSounds(sounds: SoundInput[], options: WaveformSoundsOptions = {}): string {
     const o = resolveRenderOptions(options);
     const list = normalizeSounds(sounds);
-    const ctx = {o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list)};
+    const ctx: RenderContext = {o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list)};
     const page = o.pageSize > 0 ? o.pageSize : Infinity;
     return renderToolbar(toolbarPlan(ctx.f, o), ctx)
         + h('ul', {class: `ws-list ws-list--${o.player}`, role: 'list', 'data-ws-list': true},
@@ -341,12 +363,12 @@ export function renderSounds(sounds, options = {}) {
  * The full element, for callers who want one string: the wrapper div with
  * its `data-waveform-sounds` marker, its `data-player` and the inner markup.
  *
- * @param {Object[]} sounds
- * @param {Object} [options]
- * @param {string} [className] - Extra classes for the wrapper.
- * @returns {string}
+ * @param sounds
+ * @param options
+ * @param className - Extra classes for the wrapper.
+ * @returns 
  */
-export function renderSoundsElement(sounds, options = {}, className = '') {
+export function renderSoundsElement(sounds: SoundInput[], options: WaveformSoundsOptions = {}, className: string = ''): string {
     const o = resolveRenderOptions(options);
     const cls = ['waveform-sounds', `waveform-sounds--${o.player}`, className].filter(Boolean).join(' ');
     return h('div', {class: cls, 'data-waveform-sounds': true, 'data-player': o.player}, renderSounds(sounds, options));
