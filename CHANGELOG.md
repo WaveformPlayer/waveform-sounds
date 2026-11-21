@@ -6,7 +6,7 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [2.0.0] — Unreleased
+## [2.0.0] — 2026-11-21
 
 Version 2.0.0 lines the package up with `@arraypress/waveform-player` 2.0,
 which it now requires. The list itself works as in 0.3.1: options, markup,
