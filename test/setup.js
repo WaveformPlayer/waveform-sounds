@@ -118,6 +118,10 @@ export class MockWaveformPlayer {
 
 	play() {
 		this.calls.play++;
+		// The core still calls play() after a failed load (autoplay); the
+		// media element rejects it (MEDIA_ERR_SRC_NOT_SUPPORTED) with no
+		// `play` event, so no onPlay.
+		if (MockWaveformPlayer.failingUrls.has(this.audio.src)) return Promise.reject(new Error('NotSupportedError'));
 		this.isPlaying = true;
 		this.audio.paused = false;
 		// preload="none" defers the metadata fetch until playback is requested.
@@ -141,7 +145,14 @@ export class MockWaveformPlayer {
 	/** Core `loadTrack`: merge (nullish-skipping), reset per-track state, load, autoplay. */
 	async loadTrack(url, title = null, artist = null, options = {}) {
 		this.calls.loadTrack.push({ url, title, artist, options });
-		if (this.isPlaying) this.pause();
+		// The core pauses first, but then resets the media element (src = '',
+		// load()), and the media load algorithm drops the queued `pause` event:
+		// in a real browser a switch reaches no onPause. So: silent.
+		if (this.isPlaying) {
+			this.calls.pause++;
+			this.isPlaying = false;
+			this.audio.paused = true;
+		}
 
 		this.options = mergeOptions(this.options, {
 			url,
@@ -160,7 +171,7 @@ export class MockWaveformPlayer {
 		for (const key of ['duration', 'downloadUrl', 'downloadName']) if (options[key] == null) this.options[key] = null;
 
 		await this._load(url);
-		if (options.autoplay !== false && !this.destroyed) this.play();
+		if (options.autoplay !== false && !this.destroyed) this.play().catch(() => {});
 	}
 
 	/** Drive the core's time callback, as playback would. */

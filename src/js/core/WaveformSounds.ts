@@ -163,6 +163,7 @@ export class WaveformSounds {
     /** @internal */ declare _autoSurface: boolean | undefined;
     /** @internal */ declare _urlTimer: number | undefined;
     /** @internal */ declare _cued: boolean | undefined;
+    /** @internal The sound last reported as playing (its pause not yet reported). */ declare _announced: number | null | undefined;
 
     /**
      * @param {HTMLElement|string} container - The element (or a selector).
@@ -916,11 +917,12 @@ export class WaveformSounds {
     }
 
     /**
-     * The engine loaded a sound: apply the loop, borrow decoded peaks for a
+     * The engine loaded a sound: clear an earlier failure, apply the loop, borrow decoded peaks for a
      * row that had none, and land a pending seek.
      * @internal
      */
     _onEngineLoad(): void {
+        if (this.currentIndex != null) this.rows[this.currentIndex]?.classList.remove('is-error');
         if ((this.engine as Engine | null)?.audio) (this.engine as Engine).audio!.loop = this._repeats();
         const sound = this.sounds[this.currentIndex!];
         if (sound && !sound.peaks && (this.engine as Engine | null)?.waveformData?.length) {
@@ -970,33 +972,62 @@ export class WaveformSounds {
     }
 
     /**
-     * A sound failed to load or play: mark its row and report it.
+     * A sound failed to load or play: it isn't playing (no stale "Pause"),
+     * its row is marked until it plays, and the live region says so.
      * @internal
      */
     _onEngineError(err: unknown): void {
-        this.rows[this.currentIndex!]?.classList.add('is-error');
-        this._emit('error', {error: err, sound: this.sounds[this.currentIndex!], index: this.currentIndex});
+        const index = this.currentIndex;
+        const sound = index == null ? undefined : this.sounds[index];
+        if (index != null) this.rows[index]?.classList.add('is-error');
+        this._setPlaying(false);
+        // A cued sound (strip, nothing played) wasn't asked for: no announcement.
+        if (sound && !this._cued && this.$?.status) this.$.status.textContent = fill(this.strings.playError, {title: sound.title});
+        this._emit('error', {error: err, sound, index});
         this.options.onError?.(err, this);
     }
 
     /**
-     * Record play/pause and repaint. Events fire only on a real change: at a
-     * natural end the browser fires `pause` then `ended`, and `_onEnd()`
-     * also settles the state — one pause event, not two.
+     * Record play/pause and repaint, and report what the listener hears.
+     * Events follow the SOUND, not the flag: switching sounds while one plays
+     * (↓ audition, `play(i)`, `next()`, auto-advance) never flips `playing`
+     * in some engines (the media element swaps source without a `pause`),
+     * so the last sound announced is tracked — a different one starting
+     * reports `pause` for the outgoing sound, then `play` for the new one.
+     * At a natural end the browser fires `pause` then `ended`, and `_onEnd()`
+     * settles the state again: one pause event, not two.
      * @internal
      */
     _setPlaying(on: boolean): void {
-        const changed = this.playing !== on;
         (this as Writable<WaveformSounds>).playing = on;
         if (on) this._cued = false; // the strip's own button played the cued sound
         const index = this.currentIndex;
         if (index == null) return;
+        if (on) this.rows[index]?.classList.remove('is-error'); // it plays after all
         this._paintRow(index);
-        if (!changed) return;
+        const was = this._announced ?? null;
+        if (on) {
+            if (was === index) return;
+            if (was != null) this._announce('pause', was);
+            this._announced = index;
+            this._announce('play', index);
+        } else if (was != null) {
+            this._announced = null;
+            this._announce('pause', was);
+        }
+    }
+
+    /**
+     * Report a sound starting or stopping: the live region (on play), the
+     * `waveformsounds:play|pause` event and the `onPlay` / `onPause` callback.
+     * @internal
+     */
+    _announce(type: 'play' | 'pause', index: number): void {
         const sound = this.sounds[index];
-        if (on && this.$.status) this.$.status.textContent = fill(this.strings.nowPlaying, {title: sound.title});
-        this._emit(on ? 'play' : 'pause', {sound, index});
-        (on ? this.options.onPlay : this.options.onPause)?.(sound, this);
+        if (!sound) return;
+        if (type === 'play' && this.$?.status) this.$.status.textContent = fill(this.strings.nowPlaying, {title: sound.title});
+        this._emit(type, {sound, index});
+        (type === 'play' ? this.options.onPlay : this.options.onPause)?.(sound, this);
     }
 
     /* ── Row painting ─────────────────────────────────────────────────── */

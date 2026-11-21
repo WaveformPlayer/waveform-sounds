@@ -255,7 +255,8 @@ var DEFAULT_STRINGS = {
   showMore: "Show {count} more",
   empty: "No sounds match.",
   clear: "Clear filters",
-  nowPlaying: "Playing {title}"
+  nowPlaying: "Playing {title}",
+  playError: "Could not play {title}"
 };
 var SORT_LABEL_KEYS = {
   default: "sortDefault",

@@ -49,6 +49,7 @@ export const DEFAULT_STRINGS: WaveformSoundsStrings = {
     empty: 'No sounds match.',
     clear: 'Clear filters',
     nowPlaying: 'Playing {title}',
+    playError: 'Could not play {title}',
 };
 
 /** The label each sort order shows in the Sort menu. */

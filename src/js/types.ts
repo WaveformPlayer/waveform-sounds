@@ -137,6 +137,8 @@ export interface WaveformSoundsStrings {
     empty: string;
     clear: string;
     nowPlaying: string;
+    /** Announced when a sound fails to load or play. Since 2.1.0. */
+    playError: string;
 }
 
 export interface WaveformSoundsOptions {

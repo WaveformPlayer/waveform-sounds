@@ -340,6 +340,63 @@ describe('playback', () => {
         expect(onPlay).toHaveBeenCalledWith(expect.objectContaining({title: 'Drum Loop 01'}), ws);
     });
 
+    it('switching sounds while one plays reports pause for the outgoing sound, then play (every route)', async () => {
+        const onPlay = vi.fn();
+        const ws = await make({onPlay, autoAdvance: true});
+        const seen = [];
+        for (const t of ['play', 'pause']) host.addEventListener(`waveformsounds:${t}`, (e) => seen.push(`${t} ${e.detail.index}`));
+        const status = () => host.querySelector('[data-ws-status]').textContent;
+        ws.play(0);
+        await settle();
+        ws.play(2); // play(i)
+        await settle();
+        expect(ws.playing).toBe(true);
+        expect(status()).toBe('Playing Bass Loop 02');
+        ws.previous(); // previous()/next()
+        await settle();
+        rows()[1].querySelector('.ws-play').focus();
+        rows()[1].querySelector('.ws-play').dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true})); // ↓ audition
+        await settle();
+        MockWaveformPlayer.instances[0]._end(); // auto-advance
+        await settle();
+        expect(seen).toEqual(['play 0', 'pause 0', 'play 2', 'pause 2', 'play 1', 'pause 1', 'play 2', 'pause 2', 'play 3']);
+        expect(onPlay.mock.calls.map(([s]) => s.title)).toEqual(['Bass Loop 01', 'Bass Loop 02', 'Drum Loop 01', 'Bass Loop 02', 'Crash']);
+        expect(status()).toBe('Playing Crash');
+    });
+
+    it('a failed sound is not left "playing": its row is marked, the live region says so, a later play clears it', async () => {
+        const ws = await make();
+        const seen = [];
+        for (const t of ['play', 'pause', 'error']) host.addEventListener(`waveformsounds:${t}`, (e) => seen.push(`${t} ${e.detail.index}`));
+        ws.play(0);
+        await settle();
+        MockWaveformPlayer.failingUrls.add(SOUNDS[1].url);
+        ws.play(1);
+        await settle();
+        const row = rows()[1];
+        expect(ws.playing).toBe(false);
+        expect(row.classList.contains('is-error')).toBe(true);
+        expect(row.classList.contains('is-playing')).toBe(false);
+        expect(row.querySelector('.ws-play').getAttribute('aria-label')).toBe('Play Drum Loop 01');
+        expect(host.querySelector('[data-ws-status]').textContent).toBe('Could not play Drum Loop 01');
+        expect(seen).toEqual(['play 0', 'pause 0', 'error 1']);
+        MockWaveformPlayer.failingUrls.clear();
+        ws.play(1);
+        await settle();
+        expect(row.classList.contains('is-error')).toBe(false);
+        expect(ws.playing).toBe(true);
+        expect(host.querySelector('[data-ws-status]').textContent).toBe('Playing Drum Loop 01');
+    });
+
+    it('the play-error announcement is a localisable string', async () => {
+        const ws = await make({strings: {playError: 'Kan {title} niet afspelen'}});
+        MockWaveformPlayer.failingUrls.add(SOUNDS[0].url);
+        ws.play(0);
+        await settle();
+        MockWaveformPlayer.failingUrls.clear();
+        expect(host.querySelector('[data-ws-status]').textContent).toBe('Kan Bass Loop 01 niet afspelen');
+    });
+
     it('calls the engine callbacks a caller passed in playerOptions too', async () => {
         const onPlay = vi.fn();
         const ws = await make({playerOptions: {onPlay}});
