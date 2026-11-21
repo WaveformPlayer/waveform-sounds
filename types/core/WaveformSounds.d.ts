@@ -29,9 +29,27 @@ import { facets, formatDuration, matches, normalizeSounds, parseManifest, sortSo
 import { DEFAULT_OPTIONS } from './options.js';
 import { renderSounds } from '../render/markup.js';
 import type { decodePeaks, encodePeaks, normalizeKey } from '../data/sounds.js';
-import type { Sound, SoundsFilter, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings } from '../types.js';
+import type { WaveformPlayer } from '@arraypress/waveform-player';
+import type { Sound, SoundsFilter, SoundsSort, WaveformSoundsInstanceEventMap, WaveformSoundsOptions, WaveformSoundsStrings } from '../types.js';
 export { DEFAULT_OPTIONS };
-export declare class WaveformSounds {
+/**
+ * Typed listeners for the events a list dispatches on itself (see
+ * {@link WaveformSoundsInstanceEventMap}). Types only: merged into the class
+ * below, it emits nothing.
+ */
+export interface WaveformSounds {
+    addEventListener<K extends keyof WaveformSoundsInstanceEventMap>(type: K, listener: (this: WaveformSounds, ev: WaveformSoundsInstanceEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener<K extends keyof WaveformSoundsInstanceEventMap>(type: K, listener: (this: WaveformSounds, ev: WaveformSoundsInstanceEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
+}
+/**
+ * An `EventTarget`, like the core's player: each moment is dispatched on the
+ * instance as a plain event (`ready`, `play`, `pause`, `end`, `filter`,
+ * `error`), and on the container as a bubbling, composed
+ * `waveformsounds:<name>` CustomEvent carrying the details.
+ */
+export declare class WaveformSounds extends EventTarget {
     /** Every live instance, by its element. */
     static instances: Map<Element, WaveformSounds>;
     /** The pure helpers, for `<script>` users (attached in `entry.ts`). */
@@ -65,8 +83,9 @@ export declare class WaveformSounds {
     readonly filter: SoundsFilter;
     readonly sortBy: SoundsSort;
     readonly playing: boolean;
-    /** The engine `WaveformPlayer`, created on first play. */
-    readonly engine: unknown;
+    /** The engine `WaveformPlayer`: built when the list is ready if the
+     *  player is on the page (else on first play), null before and after. */
+    readonly engine: WaveformPlayer | null;
     /**
      * @param {HTMLElement|string} container - The element (or a selector).
      * @param {WaveformSoundsOptions} [options]

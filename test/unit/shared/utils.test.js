@@ -23,8 +23,9 @@ describe('utils', () => {
         parent.appendChild(child);
         let got = null;
         parent.addEventListener('waveformsounds:play', (e) => { got = e.detail; });
-        emit(child, 'play', {a: 1});
+        const event = emit(child, 'play', {a: 1});
         expect(got).toEqual({a: 1});
+        expect(event.composed).toBe(true); // leaves a shadow root, like the core's
     });
     it('hashString is stable, unsigned 32-bit, and spreads', () => {
         expect(hashString('abc')).toBe(hashString('abc'));

@@ -29,12 +29,36 @@ export function encodePeaks(peaks: number[]): string {
     return out;
 }
 
+/** The player's compact peaks format: `"wp1:"` + base64url (no padding). */
+const COMPACT_PREFIX = 'wp1:';
+
+/**
+ * The body of a `wp1:` string to 0..1 peaks (as the core decodes it).
+ *
+ * @param body - base64url, after the prefix.
+ * @returns Peaks, or null when malformed or empty.
+ */
+function decodeCompact(body: string): number[] | null {
+    // A length of 4n+1 can't come from whole bytes.
+    if (!body || !/^[\w-]+$/.test(body) || body.length % 4 === 1) return null;
+    try {
+        const bytes = atob(body.replace(/-/g, '+').replace(/_/g, '/'));
+        const out = new Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i) / 255;
+        return out;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Decode peaks from any accepted form into numbers 0..1.
  *
- * Accepts the hex string from {@link encodePeaks}, an array of 0..1
- * numbers, or an array of integers on a larger scale (e.g. 0..100 or
- * 0..255) together with that `scale`.
+ * Accepts the hex string from {@link encodePeaks}, the player's compact
+ * `wp1:` string (`"wp1:"` + base64url of one byte per peak, what the 2.0
+ * core and waveform-gen write), an array of 0..1 numbers, or an array of
+ * integers on a larger scale (e.g. 0..100 or 0..255) together with that
+ * `scale`. Server markup still writes hex.
  *
  * @param value
  * @param scale - The maximum of an integer array.
@@ -43,9 +67,10 @@ export function encodePeaks(peaks: number[]): string {
 export function decodePeaks(value: string | number[] | null | undefined, scale: number = 1): number[] | null {
     if (value == null || value === '') return null;
     if (typeof value === 'string') {
+        if (value.startsWith(COMPACT_PREFIX)) return decodeCompact(value.slice(COMPACT_PREFIX.length));
         if (!/^[0-9a-f]+$/i.test(value) || value.length % 2) return null;
         const out = new Array(value.length / 2);
-        for (let i = 0; i < out.length; i++) out[i] = parseInt(value.substr(i * 2, 2), 16) / 255;
+        for (let i = 0; i < out.length; i++) out[i] = parseInt(value.slice(i * 2, i * 2 + 2), 16) / 255;
         return out;
     }
     if (!Array.isArray(value)) return null;
@@ -132,8 +157,9 @@ export function parseDuration(value: number | string | null | undefined): number
     if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
     const str = String(value).trim();
     if (/^\d+(\.\d+)?$/.test(str)) return Number(str);
+    // Each part a plain non-negative number: "1:-30" is not a length.
+    if (!/^\d+(\.\d+)?(:\d+(\.\d+)?)+$/.test(str)) return null;
     const parts = str.split(':').map(Number);
-    if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) return null;
     return parts.reduce((acc, n) => acc * 60 + n, 0);
 }
 

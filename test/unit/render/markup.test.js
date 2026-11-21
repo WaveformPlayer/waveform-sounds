@@ -5,6 +5,7 @@ import {renderSounds, renderSoundsElement, toolbarPlan, idBase, loopsByDefault} 
 import {facets, normalizeSounds} from '../../../src/js/data/sounds.js';
 import {resolveRenderOptions} from '../../../src/js/render/options.js';
 import * as renderEntry from '../../../src/js/render-entry.js';
+import {pickRenderOptions, RENDER_OPTION_KEYS} from '../../../src/js/render/options.js';
 
 const sounds = [
     {url: '/a.mp3', title: 'Bass <b>Loop</b>', type: 'Bass', bpm: 128, key: 'F minor', duration: 8, peaks: [0, 1]},
@@ -134,6 +135,15 @@ describe('renderSounds (server)', () => {
         const html = renderSoundsElement(sounds, {player: 'strip'}, 'extra');
         expect(html.startsWith('<div class="waveform-sounds waveform-sounds--strip extra" data-waveform-sounds data-player="strip">')).toBe(true);
     });
+
+    it('writes a data-* attribute for every render option set (the inner markup is renderSounds\')', () => {
+        const opts = {pageSize: 20, filters: [], sorts: ['title', 'bogus'], search: false, loop: false, idPrefix: 'p1', strings: {all: 'Alles', count: undefined}, waveformColor: 'red', menuSearch: null};
+        const html = renderSoundsElement(sounds, opts);
+        const open = html.slice(0, html.indexOf('>') + 1);
+        expect(open).toBe('<div class="waveform-sounds waveform-sounds--inline" data-waveform-sounds data-player="inline" data-search="false" data-filters="" data-sorts="title" data-page-size="20" data-id-prefix="p1" data-loop="false" data-strings="{&quot;all&quot;:&quot;Alles&quot;}">');
+        expect(html.slice(open.length, -'</div>'.length)).toBe(renderSounds(sounds, opts));
+    });
+
 });
 
 describe('toolbarPlan', () => {
@@ -216,5 +226,18 @@ describe('the Loop toggle\'s starting state', () => {
         expect(renderSounds([{url: '/a.mp3', loop: true}, {url: '/b.mp3'}])).toContain('data-ws-loop aria-pressed="true"');
         expect(renderSounds([{url: '/a.mp3'}, {url: '/b.mp3'}])).toContain('data-ws-loop aria-pressed="false"');
         expect(renderSounds([{url: '/a.mp3', loop: true}, {url: '/b.mp3'}], {loop: false})).toContain('data-ws-loop aria-pressed="false"');
+    });
+});
+
+describe('pickRenderOptions', () => {
+    it('keeps the render options that are set, nothing else', () => {
+        expect(RENDER_OPTION_KEYS).toEqual(['player', 'search', 'filters', 'sorts', 'loopToggle', 'showCount', 'menuSearch', 'pageSize', 'columns', 'maxTypeChips', 'idPrefix', 'loop', 'strings']);
+        expect(pickRenderOptions({pageSize: 20, loop: null, onPlay: () => {}, waveformColor: 'red', strings: {all: 'A'}, player: undefined}))
+            .toEqual({pageSize: 20, strings: {all: 'A'}});
+        expect(pickRenderOptions(null)).toEqual({});
+    });
+    it('is exported from /render', () => {
+        expect(renderEntry.pickRenderOptions).toBe(pickRenderOptions);
+        expect(renderEntry.RENDER_OPTION_KEYS).toBe(RENDER_OPTION_KEYS);
     });
 });

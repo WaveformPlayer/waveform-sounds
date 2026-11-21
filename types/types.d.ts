@@ -41,8 +41,9 @@ export interface SoundInput {
     /** A loop (`true`) rather than a one-shot (the default). Loops get a
      *  loop icon beside their name, the "Loops / One-shots" filter appears
      *  once a list has both, and with any sound marked the Loop toggle
-     *  repeats only loops. */
-    loop?: boolean;
+     *  repeats only loops. As data writes it, `'true'` / `'1'` / `1` also
+     *  mean a loop; anything else is a one-shot. */
+    loop?: boolean | 'true' | 'false' | '1' | '0' | 1 | 0;
     /** Stable id for `play('id')`. Defaults to `sound-<n>`, 1-based
      *  (`sound-1` is the first sound). */
     id?: string;
@@ -226,7 +227,10 @@ export interface WaveformSoundsOptions {
     onFilter?: ((visible: Sound[], instance: WaveformSounds) => void) | null;
     onError?: ((error: unknown, instance: WaveformSounds) => void) | null;
 }
-/** `detail` of the `waveformsounds:*` DOM events (all bubble). */
+/** `detail` of the `waveformsounds:*` DOM events. All bubble and are
+ *  composed (they leave a shadow root); merged into `HTMLElementEventMap`,
+ *  `DocumentEventMap` and `WindowEventMap`, so `addEventListener` on an
+ *  element, `document` or `window` is typed. */
 export interface WaveformSoundsEventMap {
     'waveformsounds:ready': CustomEvent<{
         sounds: number;
@@ -260,5 +264,17 @@ export interface WaveformSoundsEventMap {
         index?: number;
         instance: WaveformSounds;
     }>;
+}
+/** The plain events a {@link WaveformSounds} dispatches on itself — it is an
+ *  `EventTarget`, so `list.addEventListener('play', …)` works and is typed.
+ *  Each mirrors a `waveformsounds:*` container event (whose `detail`
+ *  carries the data); the matching `on*` callback still runs. Since 2.1.0. */
+export interface WaveformSoundsInstanceEventMap {
+    ready: Event;
+    play: Event;
+    pause: Event;
+    end: Event;
+    filter: Event;
+    error: Event;
 }
 //# sourceMappingURL=types.d.ts.map

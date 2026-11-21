@@ -2,8 +2,8 @@
 // The data helpers run on the server too (the render entry), so they are
 // tested with no DOM at all.
 import {describe, it, expect} from 'vitest';
-import {formatClock, 
-    encodePeaks, decodePeaks, normalizeKey, parseDuration, formatDuration, titleFromUrl, isLoop,
+import {
+    encodePeaks, decodePeaks, normalizeKey, formatClock, parseDuration, formatDuration, titleFromUrl, isLoop,
     normalizeSounds, parseManifest, facets, matches, sortSounds,
 } from '../../../src/js/data/sounds.js';
 
@@ -26,6 +26,14 @@ describe('peaks codec', () => {
         expect(decodePeaks([0, 50, 100], 100)).toEqual([0, 0.5, 1]);
         expect(decodePeaks([])).toBeNull();
     });
+    it('reads the player\'s compact wp1: peaks too (input only)', () => {
+        expect(decodePeaks('wp1:AAECAwQ')).toEqual([0, 1, 2, 3, 4].map((b) => b / 255));
+        expect(decodePeaks('wp1:AP-A')).toEqual([0, 1, 128 / 255]);
+        expect(decodePeaks('wp1:')).toBeNull();
+        expect(decodePeaks('wp1:A')).toBeNull(); // 4n+1: not whole bytes
+        expect(decodePeaks('wp1:a+b/')).toBeNull(); // base64, not base64url
+        expect(normalizeSounds([{url: '/a', peaks: 'wp1:AP8'}])[0].peaks).toEqual([0, 1]);
+    });
 });
 
 describe('normalizeKey', () => {
@@ -47,6 +55,9 @@ describe('durations and titles', () => {
         expect(parseDuration('1:02:03')).toBe(3723);
         expect(parseDuration('soon')).toBeNull();
         expect(parseDuration(-1)).toBeNull();
+        expect(parseDuration('1:-30')).toBeNull();
+        expect(parseDuration('1:30.5')).toBe(90.5);
+        expect(parseDuration(':30')).toBeNull();
     });
     it('formats m:ss', () => {
         expect(formatDuration(8.4)).toBe('0:08');

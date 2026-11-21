@@ -36,6 +36,32 @@ export const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions,
 export type RenderOptions = typeof RENDER_DEFAULTS & {strings: WaveformSoundsStrings, idPrefix?: string, loop?: boolean | null};
 
 /**
+ * Every option that shapes the server markup: the render defaults, plus
+ * `idPrefix` (the dropdowns' ids), `loop` (whether the Loop toggle starts
+ * pressed) and `strings`. A wrapper that renders on the server passes
+ * exactly these to `renderSounds` — and the same values to the runtime, or
+ * the browser re-lays out what the server drew. Since 2.1.0.
+ */
+export const RENDER_OPTION_KEYS = [...Object.keys(RENDER_DEFAULTS), 'idPrefix', 'loop', 'strings'] as (keyof WaveformSoundsOptions)[];
+
+/**
+ * The render options set in `options` (those in {@link RENDER_OPTION_KEYS}
+ * that aren't null or undefined), for handing a component's options to
+ * `renderSounds` on the server. Since 2.1.0.
+ *
+ * @param options - Any `WaveformSoundsOptions` (or a component's props).
+ * @returns Just the render options that are set.
+ */
+export function pickRenderOptions(options: WaveformSoundsOptions | null | undefined): WaveformSoundsOptions {
+    const out: Record<string, unknown> = {};
+    for (const key of RENDER_OPTION_KEYS) {
+        const value = (options as Record<string, unknown> | null | undefined)?.[key];
+        if (value != null) out[key] = value;
+    }
+    return out as WaveformSoundsOptions;
+}
+
+/**
  * The object without its `undefined` entries (so spreading it can't erase
  * a default).
  *

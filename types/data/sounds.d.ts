@@ -20,9 +20,11 @@ export declare function encodePeaks(peaks: number[]): string;
 /**
  * Decode peaks from any accepted form into numbers 0..1.
  *
- * Accepts the hex string from {@link encodePeaks}, an array of 0..1
- * numbers, or an array of integers on a larger scale (e.g. 0..100 or
- * 0..255) together with that `scale`.
+ * Accepts the hex string from {@link encodePeaks}, the player's compact
+ * `wp1:` string (`"wp1:"` + base64url of one byte per peak, what the 2.0
+ * core and waveform-gen write), an array of 0..1 numbers, or an array of
+ * integers on a larger scale (e.g. 0..100 or 0..255) together with that
+ * `scale`. Server markup still writes hex.
  *
  * @param value
  * @param scale - The maximum of an integer array.

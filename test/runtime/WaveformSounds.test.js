@@ -50,6 +50,20 @@ describe('building the list', () => {
         expect(ws.sounds[0].peaks).toHaveLength(3);
     });
 
+    it('adopting renderSoundsElement markup keeps the render options it was drawn with (no re-paging)', async () => {
+        host.innerHTML = renderSoundsElement(SOUNDS, {pageSize: 2, filters: ['type'], loop: false, strings: {count: '{count} geluiden'}});
+        const el = host.firstElementChild;
+        const before = el.innerHTML;
+        const ws = new WaveformSounds(el);
+        await ws.ready;
+        expect(ws.options.pageSize).toBe(2);
+        expect(visibleTitles()).toHaveLength(2);
+        expect(ws.loop).toBe(false);
+        expect(el.querySelector('[data-ws-count]').textContent).toBe('4 geluiden');
+        expect(el.querySelector('[data-ws-more]').hidden).toBe(false);
+        expect(before).toContain('data-ws-list');
+    });
+
     it('renumbers adopted rows so a dropped row leaves no hole', async () => {
         host.innerHTML = renderSoundsElement(SOUNDS);
         const el = host.firstElementChild;
@@ -481,6 +495,26 @@ describe('playback', () => {
         await settle();
         MockWaveformPlayer.failingUrls.clear();
         expect(host.querySelector('[data-ws-status]').textContent).toBe('Kan Bass Loop 01 niet afspelen');
+    });
+
+    it('the instance is an EventTarget: plain-named events, after the container\'s', async () => {
+        const order = [];
+        const ws = new WaveformSounds(host, {sounds: SOUNDS});
+        expect(ws).toBeInstanceOf(EventTarget);
+        for (const t of ['ready', 'filter', 'play', 'pause', 'end', 'error']) {
+            ws.addEventListener(t, (e) => order.push(`instance ${e.type}`));
+            host.addEventListener(`waveformsounds:${t}`, (e) => order.push(`dom ${t}${e.composed ? '' : ' (not composed)'}`));
+        }
+        await ws.ready;
+        ws.play(0);
+        await settle();
+        MockWaveformPlayer.instances[0]._end();
+        MockWaveformPlayer.failingUrls.add(SOUNDS[1].url);
+        ws.play(1);
+        await settle();
+        MockWaveformPlayer.failingUrls.clear();
+        expect(order).toEqual(['dom filter', 'instance filter', 'dom ready', 'instance ready', 'dom play', 'instance play',
+            'dom end', 'instance end', 'dom pause', 'instance pause', 'dom error', 'instance error']);
     });
 
     it('calls the engine callbacks a caller passed in playerOptions too', async () => {

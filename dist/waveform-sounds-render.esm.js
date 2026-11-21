@@ -35,12 +35,25 @@ function encodePeaks(peaks) {
   }
   return out;
 }
+var COMPACT_PREFIX = "wp1:";
+function decodeCompact(body) {
+  if (!body || !/^[\w-]+$/.test(body) || body.length % 4 === 1) return null;
+  try {
+    const bytes = atob(body.replace(/-/g, "+").replace(/_/g, "/"));
+    const out = new Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i) / 255;
+    return out;
+  } catch {
+    return null;
+  }
+}
 function decodePeaks(value, scale = 1) {
   if (value == null || value === "") return null;
   if (typeof value === "string") {
+    if (value.startsWith(COMPACT_PREFIX)) return decodeCompact(value.slice(COMPACT_PREFIX.length));
     if (!/^[0-9a-f]+$/i.test(value) || value.length % 2) return null;
     const out2 = new Array(value.length / 2);
-    for (let i = 0; i < out2.length; i++) out2[i] = parseInt(value.substr(i * 2, 2), 16) / 255;
+    for (let i = 0; i < out2.length; i++) out2[i] = parseInt(value.slice(i * 2, i * 2 + 2), 16) / 255;
     return out2;
   }
   if (!Array.isArray(value)) return null;
@@ -79,8 +92,8 @@ function parseDuration(value) {
   if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
   const str = String(value).trim();
   if (/^\d+(\.\d+)?$/.test(str)) return Number(str);
+  if (!/^\d+(\.\d+)?(:\d+(\.\d+)?)+$/.test(str)) return null;
   const parts = str.split(":").map(Number);
-  if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) return null;
   return parts.reduce((acc, n) => acc * 60 + n, 0);
 }
 function titleFromUrl(url) {
@@ -299,6 +312,15 @@ var RENDER_DEFAULTS = {
   columns: [...COLUMNS],
   maxTypeChips: 10
 };
+var RENDER_OPTION_KEYS = [...Object.keys(RENDER_DEFAULTS), "idPrefix", "loop", "strings"];
+function pickRenderOptions(options) {
+  const out = {};
+  for (const key of RENDER_OPTION_KEYS) {
+    const value = options?.[key];
+    if (value != null) out[key] = value;
+  }
+  return out;
+}
 function defined(obj) {
   const out = {};
   for (const k in obj ?? {}) if (obj[k] !== void 0) out[k] = obj[k];
@@ -593,13 +615,33 @@ function renderSounds(sounds, options = {}) {
     list.map((sound, i) => renderRow(sound, i, o, i >= page))
   ) + renderFooter(ctx);
 }
+function renderOptionAttributes(options = {}) {
+  const set = pickRenderOptions(options);
+  const o = resolveRenderOptions(options);
+  const out = {};
+  for (const key of RENDER_OPTION_KEYS) {
+    if (key === "player" || !(key in set)) continue;
+    const name = `data-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+    if (key === "strings") {
+      const strings = defined(set.strings);
+      if (Object.keys(strings).length) out[name] = JSON.stringify(strings);
+    } else if (key === "loop" || key === "idPrefix") {
+      out[name] = String(set[key]);
+    } else {
+      const value = o[key];
+      out[name] = Array.isArray(value) ? value.join(",") : String(value);
+    }
+  }
+  return out;
+}
 function renderSoundsElement(sounds, options = {}, className = "") {
   const o = resolveRenderOptions(options);
   const cls = ["waveform-sounds", `waveform-sounds--${o.player}`, className].filter(Boolean).join(" ");
-  return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player }, renderSounds(sounds, options));
+  return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player, ...renderOptionAttributes(options) }, renderSounds(sounds, options));
 }
 export {
   DEFAULT_STRINGS,
+  RENDER_OPTION_KEYS,
   decodePeaks,
   encodePeaks,
   escapeHtml,
@@ -608,6 +650,7 @@ export {
   normalizeKey,
   normalizeSounds,
   parseManifest,
+  pickRenderOptions,
   renderSounds,
   renderSoundsElement
 };

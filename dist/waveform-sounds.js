@@ -82,12 +82,25 @@
     }
     return out;
   }
+  var COMPACT_PREFIX = "wp1:";
+  function decodeCompact(body) {
+    if (!body || !/^[\w-]+$/.test(body) || body.length % 4 === 1) return null;
+    try {
+      const bytes = atob(body.replace(/-/g, "+").replace(/_/g, "/"));
+      const out = new Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i) / 255;
+      return out;
+    } catch {
+      return null;
+    }
+  }
   function decodePeaks(value, scale = 1) {
     if (value == null || value === "") return null;
     if (typeof value === "string") {
+      if (value.startsWith(COMPACT_PREFIX)) return decodeCompact(value.slice(COMPACT_PREFIX.length));
       if (!/^[0-9a-f]+$/i.test(value) || value.length % 2) return null;
       const out2 = new Array(value.length / 2);
-      for (let i = 0; i < out2.length; i++) out2[i] = parseInt(value.substr(i * 2, 2), 16) / 255;
+      for (let i = 0; i < out2.length; i++) out2[i] = parseInt(value.slice(i * 2, i * 2 + 2), 16) / 255;
       return out2;
     }
     if (!Array.isArray(value)) return null;
@@ -131,8 +144,8 @@
     if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
     const str = String(value).trim();
     if (/^\d+(\.\d+)?$/.test(str)) return Number(str);
+    if (!/^\d+(\.\d+)?(:\d+(\.\d+)?)+$/.test(str)) return null;
     const parts = str.split(":").map(Number);
-    if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) return null;
     return parts.reduce((acc, n) => acc * 60 + n, 0);
   }
   function titleFromUrl(url) {
@@ -577,7 +590,7 @@
     return !!el && (el.isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));
   }
   function emit(target, name, detail) {
-    const event = new CustomEvent(`waveformsounds:${name}`, { bubbles: true, detail });
+    const event = new CustomEvent(`waveformsounds:${name}`, { bubbles: true, composed: true, detail });
     target.dispatchEvent(event);
     return event;
   }
@@ -728,6 +741,15 @@
     columns: [...COLUMNS],
     maxTypeChips: 10
   };
+  var RENDER_OPTION_KEYS = [...Object.keys(RENDER_DEFAULTS), "idPrefix", "loop", "strings"];
+  function pickRenderOptions(options) {
+    const out = {};
+    for (const key of RENDER_OPTION_KEYS) {
+      const value = options?.[key];
+      if (value != null) out[key] = value;
+    }
+    return out;
+  }
   function defined(obj) {
     const out = {};
     for (const k in obj ?? {}) if (obj[k] !== void 0) out[k] = obj[k];
@@ -1141,10 +1163,29 @@
       list.map((sound, i) => renderRow(sound, i, o, i >= page))
     ) + renderFooter(ctx);
   }
+  function renderOptionAttributes(options = {}) {
+    const set = pickRenderOptions(options);
+    const o = resolveRenderOptions(options);
+    const out = {};
+    for (const key of RENDER_OPTION_KEYS) {
+      if (key === "player" || !(key in set)) continue;
+      const name = `data-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+      if (key === "strings") {
+        const strings = defined(set.strings);
+        if (Object.keys(strings).length) out[name] = JSON.stringify(strings);
+      } else if (key === "loop" || key === "idPrefix") {
+        out[name] = String(set[key]);
+      } else {
+        const value = o[key];
+        out[name] = Array.isArray(value) ? value.join(",") : String(value);
+      }
+    }
+    return out;
+  }
   function renderSoundsElement(sounds, options = {}, className = "") {
     const o = resolveRenderOptions(options);
     const cls = ["waveform-sounds", `waveform-sounds--${o.player}`, className].filter(Boolean).join(" ");
-    return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player }, renderSounds(sounds, options));
+    return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player, ...renderOptionAttributes(options) }, renderSounds(sounds, options));
   }
 
   // src/js/dom/rows.ts
@@ -1291,7 +1332,7 @@
   var SEARCH_DELAY = 120;
   var BPM_DELAY = 200;
   var URL_DELAY = 250;
-  var WaveformSounds = class _WaveformSounds {
+  var WaveformSounds = class _WaveformSounds extends EventTarget {
     /** Every live instance, by its element. */
     static instances = /* @__PURE__ */ new Map();
     /**
@@ -1299,6 +1340,7 @@
      * @param {WaveformSoundsOptions} [options]
      */
     constructor(container, options = {}) {
+      super();
       const el = typeof container === "string" ? document.querySelector(container) : container;
       if (!el) throw new Error(`${LOG} Container not found: ${container}`);
       this.container = el;
@@ -1915,6 +1957,13 @@
       return this.options.playerClass || (typeof window !== "undefined" ? window.WaveformPlayer : null) || null;
     }
     /**
+     * The engine as the list drives it (fields the core keeps internal).
+     * @internal
+     */
+    _eng() {
+      return this.engine;
+    }
+    /**
      * The element the engine mounts into: a child of the engine slot, never
      * the slot itself. WaveformPlayer resets its container's `className`,
      * which would strip `ws-engine--strip` (and with it the docked styling).
@@ -1939,7 +1988,7 @@
      * @internal
      */
     _ensureEngine() {
-      if (this.engine) return this.engine;
+      if (this.engine) return this._eng();
       const Player = this._playerClass();
       if (!Player) {
         console.error(`${LOG} @arraypress/waveform-player is required: load it before playing (or pass playerClass).`);
@@ -1955,7 +2004,7 @@
       });
       this._preload = options.preload;
       this.engine = new Player(this._engineMount(), options);
-      return this.engine;
+      return this._eng();
     }
     /**
      * Play a sound (by index, id or sound object), or resume the current
@@ -2001,7 +2050,7 @@
      * @internal
      */
     _cueFirst() {
-      const engine = this.engine;
+      const engine = this._eng();
       const first = this.visible[0];
       if (!engine || !first) return;
       const index = this.sounds.indexOf(first);
@@ -2021,7 +2070,7 @@
     }
     /** Pause the current sound. */
     pause() {
-      if (this.engine && this.playing) this.engine.pause();
+      if (this.engine && this.playing) this._eng().pause();
     }
     /**
      * The current sound plays/pauses; another sound starts.
@@ -2079,7 +2128,7 @@
      */
     _setLoop(on) {
       this.$?.loop?.setAttribute("aria-pressed", String(on));
-      if (this.engine?.audio) this.engine.audio.loop = this._repeats();
+      if (this._eng()?.audio) this._eng().audio.loop = this._repeats();
     }
     /**
      * Should the current sound repeat? The Loop toggle is on, and either
@@ -2101,16 +2150,16 @@
         this.play(index, { at: fraction });
         return;
       }
-      const duration = this.engine.audio?.duration;
+      const duration = this._eng().audio?.duration;
       if (!Number.isFinite(duration) || duration <= 0) {
         this._pendingSeek = fraction;
         return;
       }
-      this.engine.seekTo(fraction * duration);
+      this._eng().seekTo(fraction * duration);
       this.progress = fraction;
       this._paintRow(index);
       this._paintSlider();
-      if (!this.playing) this.engine.play();
+      if (!this.playing) this._eng().play();
     }
     /**
      * The engine loaded a sound: clear an earlier failure, apply the loop, borrow decoded peaks for a
@@ -2119,15 +2168,15 @@
      */
     _onEngineLoad() {
       if (this.currentIndex != null) this.rows[this.currentIndex]?.classList.remove("is-error");
-      if (this.engine?.audio) this.engine.audio.loop = this._repeats();
+      if (this._eng()?.audio) this._eng().audio.loop = this._repeats();
       const sound = this.sounds[this.currentIndex];
-      if (sound && !sound.peaks && this.engine?.waveformData?.length) {
-        sound.peaks = resample(this.engine.waveformData, 96);
+      if (sound && !sound.peaks && this._eng()?.waveformData?.length) {
+        sound.peaks = resample(this._eng().waveformData, 96);
         this._drawRow(this.currentIndex);
       }
-      const duration = this.engine?.audio?.duration;
+      const duration = this._eng()?.audio?.duration;
       if (this._pendingSeek != null && Number.isFinite(duration) && duration > 0) {
-        this.engine.seekTo(this._pendingSeek * duration);
+        this._eng().seekTo(this._pendingSeek * duration);
         this.progress = this._pendingSeek;
         this._pendingSeek = null;
       }
@@ -2141,7 +2190,7 @@
       if (this._pendingSeek != null) {
         const fraction = this._pendingSeek;
         this._pendingSeek = null;
-        this.engine.seekTo(fraction * duration);
+        this._eng().seekTo(fraction * duration);
         return;
       }
       this.progress = Math.min(Math.max(time / duration, 0), 1);
@@ -2256,17 +2305,20 @@
       const wave = index == null ? null : this.rows[index]?.querySelector(".ws-wave");
       if (!wave) return;
       wave.setAttribute("aria-valuenow", String(Math.round(this.progress * 100)));
-      const audio = this.engine?.audio;
+      const audio = this._eng()?.audio;
       const duration = Number.isFinite(audio?.duration) && audio.duration > 0 ? audio.duration : this.sounds[index].duration;
       if (duration) wave.setAttribute("aria-valuetext", fill(this.strings.seekValue, { time: formatClock(this.progress * duration), duration: formatDuration(duration) }));
     }
     /* ── Events & lifecycle ──────────────────────────────────────────── */
     /**
-     * Emit a `waveformsounds:<name>` event carrying this instance.
+     * Announce a moment both ways: a `waveformsounds:<name>` event on the
+     * container carrying the details and this instance, then a plain `<name>`
+     * event on the instance.
      * @internal
      */
     _emit(name, detail = {}) {
       emit(this.container, name, { ...detail, instance: this });
+      this.dispatchEvent(new Event(name));
     }
     /** The sound playing (or paused) now, or null. */
     get current() {
@@ -2289,7 +2341,7 @@
       if (this._raf) cancelAnimationFrame(this._raf);
       clearTimeout(this._urlTimer);
       try {
-        this.engine?.destroy();
+        this._eng()?.destroy();
       } catch {
       }
       this.engine = null;

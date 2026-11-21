@@ -16,10 +16,10 @@
  */
 import { escapeHtml } from '../vendor/arraypress-text.js';
 import { availableSorts, facets } from '../data/sounds.js';
-import { RENDER_DEFAULTS, resolveRenderOptions } from './options.js';
+import { pickRenderOptions, RENDER_DEFAULTS, RENDER_OPTION_KEYS, resolveRenderOptions } from './options.js';
 import { countText, DEFAULT_STRINGS, fill } from './strings.js';
 import type { Sound, SoundInput, WaveformSoundsOptions } from '../types.js';
-export { escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts };
+export { escapeHtml, RENDER_DEFAULTS, RENDER_OPTION_KEYS, pickRenderOptions, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts };
 /**
  * A stable id prefix for a list's dropdowns, from its sounds: the same on
  * the server and in the browser. Two lists of the SAME sounds on one page
@@ -120,8 +120,22 @@ export declare function renderRow(sound: Sound, index: number, o: ReturnType<typ
  */
 export declare function renderSounds(sounds: SoundInput[], options?: WaveformSoundsOptions): string;
 /**
+ * The `data-*` attributes that carry the render options set in `options` to
+ * the runtime (`data-page-size="20"`, `data-filters=""`, `data-strings='{…}'`),
+ * in the form `readDataOptions` reads — so the browser keeps what the server
+ * drew instead of falling back to the defaults (re-paging 20 rows to 50).
+ * Only options that are set are written; `player` is always written by
+ * {@link renderSoundsElement}. Since 2.1.0.
+ *
+ * @param options
+ * @returns Attributes, in {@link RENDER_OPTION_KEYS} order.
+ */
+export declare function renderOptionAttributes(options?: WaveformSoundsOptions): Record<string, string>;
+/**
  * The full element, for callers who want one string: the wrapper div with
- * its `data-waveform-sounds` marker, its `data-player` and the inner markup.
+ * its `data-waveform-sounds` marker, its `data-player`, a `data-*` attribute
+ * for every other render option set (see {@link renderOptionAttributes}) and
+ * the inner markup. The inner markup is exactly {@link renderSounds}'.
  *
  * @param sounds
  * @param options

@@ -6,7 +6,7 @@
  */
 import { WaveformSounds, DEFAULT_OPTIONS } from './core/WaveformSounds.js';
 import { encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration } from './data/sounds.js';
-import { renderSounds, renderSoundsElement, DEFAULT_STRINGS } from './render/markup.js';
+import { renderSounds, renderSoundsElement, DEFAULT_STRINGS, RENDER_OPTION_KEYS, pickRenderOptions } from './render/markup.js';
 import type { WaveformSoundsEventMap } from './types.js';
 declare global {
     interface Window {
@@ -15,8 +15,12 @@ declare global {
     }
     interface HTMLElementEventMap extends WaveformSoundsEventMap {
     }
+    interface DocumentEventMap extends WaveformSoundsEventMap {
+    }
+    interface WindowEventMap extends WaveformSoundsEventMap {
+    }
 }
 export default WaveformSounds;
-export { WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS, encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds, renderSoundsElement, };
-export type { SoundInput, Sound, SoundsManifest, SoundsFilter, SoundsLoopFilter, SoundsSort, SoundsLayout, SoundsFilterControl, SoundsColumn, WaveformSoundsStrings, WaveformSoundsOptions, WaveformSoundsEventMap, } from './types.js';
+export { WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS, encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds, renderSoundsElement, RENDER_OPTION_KEYS, pickRenderOptions, };
+export type { SoundInput, Sound, SoundsManifest, SoundsFilter, SoundsLoopFilter, SoundsSort, SoundsLayout, SoundsFilterControl, SoundsColumn, WaveformSoundsStrings, WaveformSoundsOptions, WaveformSoundsEventMap, WaveformSoundsInstanceEventMap, } from './types.js';
 //# sourceMappingURL=entry.d.ts.map

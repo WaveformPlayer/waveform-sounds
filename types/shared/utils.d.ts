@@ -36,7 +36,9 @@ export declare function pointerFraction(clientX: number, rect: {
  */
 export declare function isTyping(el: Element | null | undefined): boolean;
 /**
- * Dispatch a bubbling `waveformsounds:<name>` CustomEvent from an element.
+ * Dispatch a bubbling, composed `waveformsounds:<name>` CustomEvent from an
+ * element (composed: it leaves a shadow root, like the core's lifecycle
+ * events).
  * Every event the list emits goes through here, so they share one shape:
  * the detail plus the instance that sent it.
  *

@@ -43,8 +43,9 @@ import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 import {h, text} from '../render/html.js';
 import type {decodePeaks, encodePeaks, normalizeKey} from '../data/sounds.js';
 import type {EngineTrack} from './engine.js';
+import type {WaveformPlayer} from '@arraypress/waveform-player';
 import type {RenderOptions} from '../render/options.js';
-import type {Sound, SoundInput, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
+import type {Sound, SoundInput, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsInstanceEventMap, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 /** The engine `WaveformPlayer`, as far as the list uses it. */
 interface Engine {
@@ -96,7 +97,26 @@ const BPM_DELAY = 200;
 /** Debounce before the address is rewritten after a change (ms). */
 const URL_DELAY = 250;
 
-export class WaveformSounds {
+/**
+ * Typed listeners for the events a list dispatches on itself (see
+ * {@link WaveformSoundsInstanceEventMap}). Types only: merged into the class
+ * below, it emits nothing.
+ */
+export interface WaveformSounds {
+    addEventListener<K extends keyof WaveformSoundsInstanceEventMap>(type: K, listener: (this: WaveformSounds, ev: WaveformSoundsInstanceEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener<K extends keyof WaveformSoundsInstanceEventMap>(type: K, listener: (this: WaveformSounds, ev: WaveformSoundsInstanceEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
+}
+
+/**
+ * An `EventTarget`, like the core's player: each moment is dispatched on the
+ * instance as a plain event (`ready`, `play`, `pause`, `end`, `filter`,
+ * `error`), and on the container as a bubbling, composed
+ * `waveformsounds:<name>` CustomEvent carrying the details.
+ */
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: see the interface above
+export class WaveformSounds extends EventTarget {
     /** Every live instance, by its element. */
     static instances: Map<Element, WaveformSounds> = new Map();
     /** The pure helpers, for `<script>` users (attached in `entry.ts`). */
@@ -131,8 +151,9 @@ export class WaveformSounds {
     declare readonly filter: SoundsFilter;
     declare readonly sortBy: SoundsSort;
     declare readonly playing: boolean;
-    /** The engine `WaveformPlayer`, created on first play. */
-    declare readonly engine: unknown;
+    /** The engine `WaveformPlayer`: built when the list is ready if the
+     *  player is on the page (else on first play), null before and after. */
+    declare readonly engine: WaveformPlayer | null;
 
     /** @internal */ declare strings: WaveformSoundsStrings;
     /** @internal */ declare render: RenderOptions;
@@ -175,6 +196,7 @@ export class WaveformSounds {
      * @param {WaveformSoundsOptions} [options]
      */
     constructor(container: HTMLElement | string, options: WaveformSoundsOptions = {}) {
+        super();
         const el = typeof container === 'string' ? document.querySelector<HTMLElement>(container) : container;
         if (!el) throw new Error(`${LOG} Container not found: ${container}`);
         this.container = el;
@@ -870,6 +892,14 @@ export class WaveformSounds {
     }
 
     /**
+     * The engine as the list drives it (fields the core keeps internal).
+     * @internal
+     */
+    _eng(): Engine | null {
+        return this.engine as unknown as Engine | null;
+    }
+
+    /**
      * The element the engine mounts into: a child of the engine slot, never
      * the slot itself. WaveformPlayer resets its container's `className`,
      * which would strip `ws-engine--strip` (and with it the docked styling).
@@ -895,7 +925,7 @@ export class WaveformSounds {
      * @internal
      */
     _ensureEngine(): Engine | null {
-        if (this.engine) return this.engine as Engine;
+        if (this.engine) return this._eng();
         const Player = this._playerClass();
         if (!Player) {
             console.error(`${LOG} @arraypress/waveform-player is required: load it before playing (or pass playerClass).`);
@@ -910,8 +940,8 @@ export class WaveformSounds {
             onError: (err: unknown) => this._onEngineError(err),
         });
         this._preload = options.preload;
-        (this as Writable<WaveformSounds>).engine = new Player(this._engineMount(), options);
-        return this.engine as Engine;
+        (this as Writable<WaveformSounds>).engine = new Player(this._engineMount(), options) as unknown as WaveformPlayer;
+        return this._eng();
     }
 
     /**
@@ -954,7 +984,7 @@ export class WaveformSounds {
      * @internal
      */
     _cueFirst(): void {
-        const engine = this.engine as Engine | null;
+        const engine = this._eng();
         const first = this.visible[0];
         if (!engine || !first) return;
         const index = this.sounds.indexOf(first);
@@ -979,7 +1009,7 @@ export class WaveformSounds {
 
     /** Pause the current sound. */
     pause(): void {
-        if (this.engine && this.playing) (this.engine as Engine).pause();
+        if (this.engine && this.playing) this._eng()!.pause();
     }
 
     /**
@@ -1037,7 +1067,7 @@ export class WaveformSounds {
      */
     _setLoop(on: boolean): void {
         this.$?.loop?.setAttribute('aria-pressed', String(on));
-        if ((this.engine as Engine | null)?.audio) (this.engine as Engine).audio!.loop = this._repeats();
+        if (this._eng()?.audio) this._eng()!.audio!.loop = this._repeats();
     }
 
     /**
@@ -1058,13 +1088,13 @@ export class WaveformSounds {
      */
     _seekRow(index: number, fraction: number): void {
         if (index !== this.currentIndex || !this.engine) { this.play(index, {at: fraction}); return; }
-        const duration = (this.engine as Engine).audio?.duration;
+        const duration = this._eng()!.audio?.duration;
         if (!Number.isFinite(duration) || duration! <= 0) { this._pendingSeek = fraction; return; }
-        (this.engine as Engine).seekTo(fraction * duration!);
+        this._eng()!.seekTo(fraction * duration!);
         this.progress = fraction;
         this._paintRow(index);
         this._paintSlider();
-        if (!this.playing) (this.engine as Engine).play();
+        if (!this.playing) this._eng()!.play();
     }
 
     /**
@@ -1074,15 +1104,15 @@ export class WaveformSounds {
      */
     _onEngineLoad(): void {
         if (this.currentIndex != null) this.rows[this.currentIndex]?.classList.remove('is-error');
-        if ((this.engine as Engine | null)?.audio) (this.engine as Engine).audio!.loop = this._repeats();
+        if (this._eng()?.audio) this._eng()!.audio!.loop = this._repeats();
         const sound = this.sounds[this.currentIndex!];
-        if (sound && !sound.peaks && (this.engine as Engine | null)?.waveformData?.length) {
-            sound.peaks = resample((this.engine as Engine).waveformData, 96);
+        if (sound && !sound.peaks && this._eng()?.waveformData?.length) {
+            sound.peaks = resample(this._eng()!.waveformData, 96);
             this._drawRow(this.currentIndex);
         }
-        const duration = (this.engine as Engine | null)?.audio?.duration;
+        const duration = this._eng()?.audio?.duration;
         if (this._pendingSeek != null && Number.isFinite(duration) && duration! > 0) {
-            (this.engine as Engine).seekTo(this._pendingSeek * duration!);
+            this._eng()!.seekTo(this._pendingSeek * duration!);
             this.progress = this._pendingSeek;
             this._pendingSeek = null;
         }
@@ -1097,7 +1127,7 @@ export class WaveformSounds {
         if (this._pendingSeek != null) {
             const fraction = this._pendingSeek;
             this._pendingSeek = null;
-            (this.engine as Engine).seekTo(fraction * duration);
+            this._eng()!.seekTo(fraction * duration);
             return;
         }
         this.progress = Math.min(Math.max(time / duration, 0), 1);
@@ -1220,7 +1250,7 @@ export class WaveformSounds {
         const wave = index == null ? null : this.rows[index]?.querySelector('.ws-wave');
         if (!wave) return;
         wave.setAttribute('aria-valuenow', String(Math.round(this.progress * 100)));
-        const audio = (this.engine as Engine | null)?.audio;
+        const audio = this._eng()?.audio;
         const duration = Number.isFinite(audio?.duration) && audio!.duration > 0 ? audio!.duration : this.sounds[index!].duration;
         if (duration) wave.setAttribute('aria-valuetext', fill(this.strings.seekValue, {time: formatClock(this.progress * duration), duration: formatDuration(duration)}));
     }
@@ -1228,11 +1258,14 @@ export class WaveformSounds {
     /* ── Events & lifecycle ──────────────────────────────────────────── */
 
     /**
-     * Emit a `waveformsounds:<name>` event carrying this instance.
+     * Announce a moment both ways: a `waveformsounds:<name>` event on the
+     * container carrying the details and this instance, then a plain `<name>`
+     * event on the instance.
      * @internal
      */
-    _emit(name: string, detail: Record<string, any> = {}): void {
+    _emit(name: keyof WaveformSoundsInstanceEventMap, detail: Record<string, any> = {}): void {
         emit(this.container, name, {...detail, instance: this});
+        this.dispatchEvent(new Event(name));
     }
 
     /** The sound playing (or paused) now, or null. */
@@ -1257,7 +1290,7 @@ export class WaveformSounds {
         this._mo?.disconnect();
         if (this._raf) cancelAnimationFrame(this._raf);
         clearTimeout(this._urlTimer);
-        try { (this.engine as Engine | null)?.destroy(); } catch { /* engine already gone */ }
+        try { this._eng()?.destroy(); } catch { /* engine already gone */ }
         (this as Writable<WaveformSounds>).engine = null;
         this.$?.engine?.querySelector(':scope > [data-ws-engine-mount]')?.remove();
         if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;

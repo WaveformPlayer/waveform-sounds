@@ -83,13 +83,20 @@ console.log(JSON.stringify(out));`);
     fs.writeFileSync(path.join(consumer, 'probe.ts'), `
 import WaveformSounds, {type WaveformSoundsOptions, type Sound} from '${NAME}';
 import {WaveformSounds as NoInit} from '${NAME}/no-autoinit';
-import {renderSounds, parseManifest, type SoundInput} from '${NAME}/render';
+import {renderSounds, parseManifest, pickRenderOptions, RENDER_OPTION_KEYS, type SoundInput} from '${NAME}/render';
+import type {WaveformPlayer} from '@arraypress/waveform-player';
 const opts: WaveformSoundsOptions = {player: 'strip', playerOptions: {height: 64}, onPlay: (s: Sound) => s.title};
-const input: SoundInput[] = [{url: '/a.wav', duration: 8}];
-export const html: string = renderSounds(input, opts);
+const input: SoundInput[] = [{url: '/a.wav', duration: 8, loop: 'true'}];
+export const html: string = renderSounds(input, pickRenderOptions(opts));
+export const keys: readonly string[] = RENDER_OPTION_KEYS;
 export const list: Sound[] = parseManifest({sounds: input});
 export const same: typeof WaveformSounds = NoInit;
-document.querySelector('div')?.addEventListener('waveformsounds:play', (e) => e.detail.sound.url);`);
+document.querySelector('div')?.addEventListener('waveformsounds:play', (e) => e.detail.sound.url);
+document.addEventListener('waveformsounds:filter', (e) => e.detail.visible.toFixed());
+window.addEventListener('waveformsounds:ready', (e) => e.detail.sounds.toFixed());
+const ws = new WaveformSounds('#x');
+ws.addEventListener('play', (e: Event) => e.type);
+export const engine: WaveformPlayer | null = ws.engine;`);
     for (const [mod, res] of [['esnext', 'bundler'], ['nodenext', 'nodenext']]) {
         const cfg = {compilerOptions: {strict: true, noEmit: true, skipLibCheck: false, lib: ['ES2022', 'DOM'], module: mod, moduleResolution: res, types: []}, files: ['probe.ts']};
         fs.writeFileSync(path.join(consumer, `tsconfig.${res}.json`), JSON.stringify(cfg));

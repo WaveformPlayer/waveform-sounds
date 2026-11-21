@@ -19,13 +19,13 @@ import {escapeHtml} from '@arraypress/text';
 import {availableSorts, encodePeaks, facets, formatDuration, normalizeSounds} from '../data/sounds.js';
 import {h, text} from './html.js';
 import {ICONS} from './icons.js';
-import {RENDER_DEFAULTS, resolveRenderOptions} from './options.js';
+import {defined, pickRenderOptions, RENDER_DEFAULTS, RENDER_OPTION_KEYS, resolveRenderOptions} from './options.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
 import {hashString} from '../shared/utils.js';
 import {bpmExtent} from '../data/bpm.js';
 import type {Sound, SoundInput, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
-export {escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts};
+export {escapeHtml, RENDER_DEFAULTS, RENDER_OPTION_KEYS, pickRenderOptions, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts};
 
 /**
  * A stable id prefix for a list's dropdowns, from its sounds: the same on
@@ -362,8 +362,41 @@ export function renderSounds(sounds: SoundInput[], options: WaveformSoundsOption
 }
 
 /**
+ * The `data-*` attributes that carry the render options set in `options` to
+ * the runtime (`data-page-size="20"`, `data-filters=""`, `data-strings='{…}'`),
+ * in the form `readDataOptions` reads — so the browser keeps what the server
+ * drew instead of falling back to the defaults (re-paging 20 rows to 50).
+ * Only options that are set are written; `player` is always written by
+ * {@link renderSoundsElement}. Since 2.1.0.
+ *
+ * @param options
+ * @returns Attributes, in {@link RENDER_OPTION_KEYS} order.
+ */
+export function renderOptionAttributes(options: WaveformSoundsOptions = {}): Record<string, string> {
+    const set = pickRenderOptions(options) as Record<string, unknown>;
+    const o = resolveRenderOptions(options) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const key of RENDER_OPTION_KEYS) {
+        if (key === 'player' || !(key in set)) continue;
+        const name = `data-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+        if (key === 'strings') {
+            const strings = defined(set.strings as Record<string, unknown>);
+            if (Object.keys(strings).length) out[name] = JSON.stringify(strings);
+        } else if (key === 'loop' || key === 'idPrefix') {
+            out[name] = String(set[key]);
+        } else {
+            const value = o[key];
+            out[name] = Array.isArray(value) ? value.join(',') : String(value);
+        }
+    }
+    return out;
+}
+
+/**
  * The full element, for callers who want one string: the wrapper div with
- * its `data-waveform-sounds` marker, its `data-player` and the inner markup.
+ * its `data-waveform-sounds` marker, its `data-player`, a `data-*` attribute
+ * for every other render option set (see {@link renderOptionAttributes}) and
+ * the inner markup. The inner markup is exactly {@link renderSounds}'.
  *
  * @param sounds
  * @param options
@@ -373,5 +406,5 @@ export function renderSounds(sounds: SoundInput[], options: WaveformSoundsOption
 export function renderSoundsElement(sounds: SoundInput[], options: WaveformSoundsOptions = {}, className: string = ''): string {
     const o = resolveRenderOptions(options);
     const cls = ['waveform-sounds', `waveform-sounds--${o.player}`, className].filter(Boolean).join(' ');
-    return h('div', {class: cls, 'data-waveform-sounds': true, 'data-player': o.player}, renderSounds(sounds, options));
+    return h('div', {class: cls, 'data-waveform-sounds': true, 'data-player': o.player, ...renderOptionAttributes(options)}, renderSounds(sounds, options));
 }
