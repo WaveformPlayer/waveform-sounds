@@ -56,6 +56,7 @@
     "serve": "npx http-server -p 8000",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:pack": "npm run build && node test/pack/verify.mjs",
     "prepublishOnly": "npm test && npm run build",
     "lint": "biome lint",
     "typecheck": "tsc -p ."
