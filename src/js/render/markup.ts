@@ -12,15 +12,23 @@
  * `data-ws-*` attribute here is read by the runtime (`core.js`,
  * `menus.js`, `rows.js`).
  *
+ * Since 2.2.0 the markup carries the rows the list starts with (a page, or
+ * with paging off the first `RENDER_CHUNK`), in its starting order,
+ * and EVERY sound as JSON (`<script type="application/json"
+ * data-ws-sounds>`); the runtime renders the other rows from it as they
+ * are revealed. Icons are `<use>`s of one sprite per list.
+ *
  * @module render
  */
 
 import {escapeHtml} from '@arraypress/text';
-import {availableSorts, encodePeaks, facets, formatDuration, normalizeSounds} from '../data/sounds.js';
+import {availableSorts, encodePeaks, facets, formatDuration, normalizeSounds, sortSounds} from '../data/sounds.js';
+import {firstRender} from '../data/navigation.js';
 import {h, text} from './html.js';
-import {ICONS} from './icons.js';
+import {icon, iconSprite} from './icons.js';
+import type {IconName} from './icons.js';
 import {defined, pickRenderOptions, RENDER_DEFAULTS, RENDER_OPTION_KEYS, resolveRenderOptions} from './options.js';
-import {bpmLabel, countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
+import {bpmLabel, countText, DEFAULT_STRINGS, fill, rowSummary, SORT_LABEL_KEYS} from './strings.js';
 import {hashString} from '../shared/utils.js';
 import {bpmExtent} from '../data/bpm.js';
 import type {Sound, SoundInput, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
@@ -104,9 +112,9 @@ export interface MenuSpec {
 /* ── Controls ───────────────────────────────────────────────────────── */
 
 /** The search field. */
-function renderSearch(s: WaveformSoundsStrings): string {
+function renderSearch(s: WaveformSoundsStrings, id: string): string {
     return h('label', {class: 'ws-search'},
-        ICONS.search,
+        icon(id, 'search'),
         h('span', {class: 'ws-sr'}, text(s.search)),
         h('input', {type: 'search', class: 'ws-search-input', 'data-ws-search': true, placeholder: s.searchPlaceholder, autocomplete: 'off', spellcheck: 'false'}),
     );
@@ -138,7 +146,7 @@ export function renderMenu(name: string, m: MenuSpec): string {
             ? h('span', {class: 'ws-menu-prefix'}, text(m.prefix))
             : h('span', {class: 'ws-sr'}, text(`${m.label}: `)),
         h('span', {class: 'ws-menu-value', 'data-ws-menu-value': true}, text(current.label)),
-        ICONS.chevron,
+        icon(m.id, 'chevron', 'ws-menu-chevron'),
     );
     const search = searchable && h('input', {
         type: 'search', class: 'ws-menu-search', 'data-ws-menu-search': true, role: 'combobox',
@@ -146,7 +154,7 @@ export function renderMenu(name: string, m: MenuSpec): string {
         'aria-label': m.placeholder, placeholder: m.placeholder, autocomplete: 'off', spellcheck: 'false',
     });
     const options = m.options.map((o, i) => h('li', {role: 'option', id: `${m.id}-${name}-${i}`, class: 'ws-menu-option', 'data-value': o.value, 'data-alt': o.alt, 'aria-selected': String(o === current)},
-        ICONS.check,
+        icon(m.id, 'check', 'ws-menu-check'),
         h('span', {class: 'ws-menu-text'}, text(o.label)),
         o.count != null && h('span', {class: 'ws-menu-count'}, text(o.count)),
     ));
@@ -183,7 +191,7 @@ function renderBpmMenu({id, s, range}: {id: string, s: WaveformSoundsStrings, ra
         h('button', {type: 'button', class: 'ws-menu-btn', 'data-ws-menu-btn': true, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': popId},
             h('span', {class: 'ws-sr'}, text(`${s.bpm}: `)),
             h('span', {class: 'ws-menu-value', 'data-ws-menu-value': true}, text(bpmLabel({}, range, s))),
-            ICONS.chevron,
+            icon(id, 'chevron', 'ws-menu-chevron'),
         ),
         h('div', {class: 'ws-menu-pop ws-bpm-pop', id: popId, role: 'dialog', 'aria-label': s.bpm, 'data-ws-menu-pop': true, hidden: true},
             h('div', {class: 'ws-bpm-head'},
@@ -210,8 +218,8 @@ function renderLoopFilter(s: WaveformSoundsStrings): string {
 }
 
 /** The Loop toggle, pressed or not. */
-function renderLoopToggle(s: WaveformSoundsStrings, pressed: boolean): string {
-    return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': String(pressed)}, ICONS.loop, h('span', {}, text(s.loop)));
+function renderLoopToggle(s: WaveformSoundsStrings, pressed: boolean, id: string): string {
+    return h('button', {type: 'button', class: 'ws-loop', 'data-ws-loop': true, 'aria-pressed': String(pressed)}, icon(id, 'loop'), h('span', {}, text(s.loop)));
 }
 
 /** One type chip ('' = all). */
@@ -244,7 +252,7 @@ function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id
             label: s.sort, prefix: s.sortBy, value: plan.sorts[0],
             options: plan.sorts.map((k) => ({value: k, label: s[SORT_LABEL_KEYS[k as SoundsSort]]})),
         }),
-        plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f)),
+        plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f), id),
     ].filter(Boolean);
 
     const chips = plan.types === 'chips' && h('div', {class: 'ws-types', role: 'group', 'aria-label': s.types},
@@ -254,7 +262,7 @@ function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id
     const count = plan.count && h('p', {class: 'ws-count', 'data-ws-count': true, 'aria-live': 'polite'}, text(countText(total, total, s)));
 
     return h('div', {class: 'ws-toolbar'},
-        plan.search && renderSearch(s),
+        plan.search && renderSearch(s, id),
         controls.length > 0 && h('div', {class: 'ws-controls'}, controls),
         // The chips and the count share a row (the count alone without chips).
         (chips || count) && h('div', {class: 'ws-meta'}, chips, count),
@@ -274,50 +282,88 @@ const CELLS: Record<string, (sound: Sound) => string> = {
 /**
  * One row. `index` is the sound's position in the ORIGINAL list: the
  * runtime maps rows back to sounds through it, whatever order they are
- * sorted into. Every field is also written as a `data-*` attribute, so the
- * runtime can rebuild the sounds from server markup.
+ * sorted into. The sound's data is not on the row (since 2.2.0): it travels
+ * once, in the list's JSON ({@link renderSoundsData}).
+ *
+ * For a screen reader the cells are one read-out ("Bass loops, 130 BPM,
+ * key B minor, 0:07") that also describes the play button; the visible
+ * cells are hidden from it. The waveform is a picture until its sound is
+ * current: the runtime makes the current row's the seek slider.
  *
  * @param sound - Normalised.
  * @param index
  * @param o
- * @param hidden - Past the first page.
+ * @param id - The list's id prefix (its icons, the read-out's id).
  */
-export function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, hidden: boolean = false): string {
+export function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, id: string): string {
     const s = o.strings;
     const vars = {title: sound.title};
     const cells = o.columns.map((c) => h('span', {class: `ws-cell ws-${c}`}, CELLS[c](sound)));
+    const summary = rowSummary(sound, o.columns, s);
+    const described = summary ? `${id}-d${index}` : null;
 
-    return h('li', {
-        class: 'ws-row',
-        'data-ws-index': index,
-        'data-ws-id': sound.id,
-        'data-url': sound.url,
-        'data-title': sound.title,
-        'data-type': sound.type || null,
-        'data-bpm': sound.bpm,
-        'data-key': sound.key || null,
-        'data-duration': sound.duration,
-        'data-tags': sound.tags?.length ? sound.tags.join(',') : null,
-        'data-peaks': sound.peaks ? encodePeaks(sound.peaks) : null,
-        'data-waveform': sound.waveform,
-        'data-download': sound.download,
-        'data-loop': sound.loop ? 'true' : null,
-        hidden,
-    },
-        h('button', {type: 'button', class: 'ws-play', 'aria-pressed': 'false', 'aria-label': fill(s.play, vars)}, ICONS.play, ICONS.pause),
+    return h('li', {class: 'ws-row', 'data-ws-index': index},
+        h('button', {type: 'button', class: 'ws-play', 'aria-pressed': 'false', 'aria-label': fill(s.play, vars), 'aria-describedby': described},
+            icon(id, 'play', 'ws-icon-play'), icon(id, 'pause', 'ws-icon-pause')),
         h('span', {class: 'ws-cell ws-title'},
             h('span', {class: 'ws-title-text'}, text(sound.title)),
-            // A loop says so beside its name; a one-shot carries nothing.
-            sound.loop && h('span', {class: 'ws-loop-mark', title: s.isLoop}, ICONS.loop, h('span', {class: 'ws-sr'}, text(s.isLoop))),
+            // A loop says so beside its name (and in the read-out); a one-shot carries nothing.
+            sound.loop && h('span', {class: 'ws-loop-mark', title: s.isLoop, 'aria-hidden': 'true'}, icon(id, 'loop')),
         ),
         // Wide rows: `display: contents` makes each cell a column. Narrow
         // rows: one line under the title.
-        cells.length > 0 && h('span', {class: 'ws-cells'}, cells),
-        o.player === 'inline' && h('span', {class: 'ws-wave', role: 'slider', 'aria-label': fill(s.seek, vars), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0', tabindex: '-1'},
-            h('canvas', {class: 'ws-canvas', 'aria-hidden': 'true'})),
+        cells.length > 0 && h('span', {class: 'ws-cells', 'aria-hidden': 'true'}, cells),
+        summary && h('span', {class: 'ws-sr', id: described}, text(summary)),
+        o.player === 'inline' && h('span', {class: 'ws-wave', 'aria-hidden': 'true'}, h('canvas', {class: 'ws-canvas'})),
         // Optional, per sound: a plain link. Rows without one carry nothing.
-        sound.download && h('a', {class: 'ws-download', href: sound.download, download: true, 'aria-label': fill(s.download, vars)}, ICONS.download),
+        sound.download && h('a', {class: 'ws-download', href: sound.download, download: true, 'aria-label': fill(s.download, vars)}, icon(id, 'download')),
     );
+}
+
+/**
+ * Every sound, as the JSON the runtime reads back (`readSoundsData`):
+ * normalised, with what normalising would fill in left out (an id that is
+ * the default `sound-<n>`, empty fields), peaks as hex. `<` is escaped, so
+ * no value can close the script element.
+ *
+ * @param list - Normalised.
+ */
+export function renderSoundsData(list: Sound[]): string {
+    const data = list.map((s, i) => {
+        const d: Record<string, unknown> = {};
+        if (s.id !== `sound-${i + 1}`) d.id = s.id;
+        d.url = s.url;
+        d.title = s.title;
+        if (s.type) d.type = s.type;
+        if (s.bpm != null) d.bpm = s.bpm;
+        if (s.key) d.key = s.key;
+        if (s.duration != null) d.duration = s.duration;
+        if (s.tags.length) d.tags = s.tags;
+        if (s.peaks) d.peaks = encodePeaks(s.peaks);
+        if (s.waveform) d.waveform = s.waveform;
+        if (s.download) d.download = s.download;
+        if (s.loop) d.loop = true;
+        return d;
+    });
+    return `<script type="application/json" data-ws-sounds>${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
+/**
+ * The icons a list uses: its toolbar's, and its rows' — for every sound, as
+ * rows the runtime renders later use the same sprite.
+ *
+ * @param plan
+ * @param list
+ */
+function iconsUsed(plan: ReturnType<typeof toolbarPlan>, list: Sound[]): IconName[] {
+    const names: IconName[] = [];
+    if (list.length) names.push('play', 'pause');
+    if (plan.search) names.push('search');
+    if (plan.types === 'menu' || plan.key || plan.sorts.length) names.push('chevron', 'check');
+    else if (plan.bpm) names.push('chevron');
+    if (plan.loop || list.some((s) => s.loop)) names.push('loop');
+    if (list.some((s) => s.download)) names.push('download');
+    return names;
 }
 
 /* ── The whole list ─────────────────────────────────────────────────── */
@@ -347,14 +393,32 @@ function renderFooter({o, s, total}: RenderContext): string {
  * @returns HTML for the inside of `[data-waveform-sounds]`.
  */
 export function renderSounds(sounds: SoundInput[], options: WaveformSoundsOptions = {}): string {
+    return renderList(normalizeSounds(sounds), options, true);
+}
+
+/**
+ * {@link renderSounds}, from normalised sounds. The runtime renders a list
+ * it built itself through this without the JSON (it holds the sounds).
+ *
+ * @param list - Normalised.
+ * @param options
+ * @param withData - Append the sounds' JSON.
+ * @internal
+ */
+export function renderList(list: Sound[], options: WaveformSoundsOptions, withData: boolean): string {
     const o = resolveRenderOptions(options);
-    const list = normalizeSounds(sounds);
     const ctx: RenderContext = {o, s: o.strings, f: facets(list, o), total: list.length, id: o.idPrefix || idBase(list)};
-    const page = o.pageSize > 0 ? o.pageSize : Infinity;
-    return renderToolbar(toolbarPlan(ctx.f, o), ctx)
+    const plan = toolbarPlan(ctx.f, o);
+    // The rows the list starts with, in its starting order (the first sort
+    // offered, as the runtime starts): it adopts them as they are.
+    const index = new Map(list.map((sound, i) => [sound, i]));
+    const first = sortSounds(list, (availableSorts(o.sorts, ctx.f)[0] || 'default') as SoundsSort).slice(0, firstRender(o.pageSize));
+    return iconSprite(ctx.id, iconsUsed(plan, list))
+        + renderToolbar(plan, ctx)
         + h('ul', {class: `ws-list ws-list--${o.player}`, role: 'list', 'data-ws-list': true},
-            list.map((sound, i) => renderRow(sound, i, o, i >= page)))
-        + renderFooter(ctx);
+            first.map((sound) => renderRow(sound, index.get(sound)!, o, ctx.id)))
+        + renderFooter(ctx)
+        + (withData ? renderSoundsData(list) : '');
 }
 
 /**

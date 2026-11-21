@@ -12,6 +12,12 @@
  * `data-ws-*` attribute here is read by the runtime (`core.js`,
  * `menus.js`, `rows.js`).
  *
+ * Since 2.2.0 the markup carries the rows the list starts with (a page, or
+ * with paging off the first `RENDER_CHUNK`), in its starting order,
+ * and EVERY sound as JSON (`<script type="application/json"
+ * data-ws-sounds>`); the runtime renders the other rows from it as they
+ * are revealed. Icons are `<use>`s of one sprite per list.
+ *
  * @module render
  */
 import { escapeHtml } from '../vendor/arraypress-text.js';
@@ -101,15 +107,29 @@ export declare function renderMenu(name: string, m: MenuSpec): string;
 /**
  * One row. `index` is the sound's position in the ORIGINAL list: the
  * runtime maps rows back to sounds through it, whatever order they are
- * sorted into. Every field is also written as a `data-*` attribute, so the
- * runtime can rebuild the sounds from server markup.
+ * sorted into. The sound's data is not on the row (since 2.2.0): it travels
+ * once, in the list's JSON ({@link renderSoundsData}).
+ *
+ * For a screen reader the cells are one read-out ("Bass loops, 130 BPM,
+ * key B minor, 0:07") that also describes the play button; the visible
+ * cells are hidden from it. The waveform is a picture until its sound is
+ * current: the runtime makes the current row's the seek slider.
  *
  * @param sound - Normalised.
  * @param index
  * @param o
- * @param hidden - Past the first page.
+ * @param id - The list's id prefix (its icons, the read-out's id).
  */
-export declare function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, hidden?: boolean): string;
+export declare function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, id: string): string;
+/**
+ * Every sound, as the JSON the runtime reads back (`readSoundsData`):
+ * normalised, with what normalising would fill in left out (an id that is
+ * the default `sound-<n>`, empty fields), peaks as hex. `<` is escaped, so
+ * no value can close the script element.
+ *
+ * @param list - Normalised.
+ */
+export declare function renderSoundsData(list: Sound[]): string;
 /**
  * The whole component's inner markup.
  *

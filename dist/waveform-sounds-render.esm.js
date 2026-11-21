@@ -244,6 +244,31 @@ var SORT_NEEDS = {
 function availableSorts(sorts, f) {
   return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
 }
+function sortSounds(sounds, by = "default") {
+  const list = sounds.map((s, i) => ({ s, i }));
+  const last = (v) => v == null ? Infinity : v;
+  const cmp = {
+    title: (a, b) => a.s.title.localeCompare(b.s.title, void 0, { numeric: true, sensitivity: "base" }),
+    bpm: (a, b) => last(a.s.bpm) - last(b.s.bpm),
+    key: (a, b) => keyRank(a.s.key) - keyRank(b.s.key),
+    duration: (a, b) => last(a.s.duration) - last(b.s.duration)
+  }[by];
+  if (cmp) list.sort((a, b) => cmp(a, b) || a.i - b.i);
+  return list.map((x) => x.s);
+}
+
+// src/js/shared/utils.ts
+function hashString(str) {
+  let hash = 5381;
+  for (const char of str) hash = hash * 33 + char.codePointAt(0) >>> 0;
+  return hash;
+}
+
+// src/js/data/navigation.ts
+var RENDER_CHUNK = 50;
+function firstRender(pageSize) {
+  return pageSize > 0 ? pageSize : RENDER_CHUNK;
+}
 
 // src/js/render/html.ts
 var VOID = /* @__PURE__ */ new Set(["input", "br", "img"]);
@@ -265,19 +290,27 @@ function h(tag, attributes = {}, ...children) {
 }
 
 // src/js/render/icons.ts
-function icon(path, extraClass = "") {
-  const cls = extraClass ? `ws-icon ${extraClass}` : "ws-icon";
-  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
-}
-var ICONS = {
-  play: icon("M8 5.5v13l11-6.5z", "ws-icon-play"),
-  pause: icon("M7 5h3.5v14H7zM13.5 5H17v14h-3.5z", "ws-icon-pause"),
-  search: icon("M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z"),
-  chevron: icon("M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z", "ws-menu-chevron"),
-  check: icon("M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z", "ws-menu-check"),
-  download: icon("M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"),
-  loop: icon("M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z")
+var ICON_PATHS = {
+  play: "M8 5.5v13l11-6.5z",
+  pause: "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z",
+  search: "M10.5 4a6.5 6.5 0 1 0 4.03 11.6l4.43 4.43 1.41-1.41-4.43-4.43A6.5 6.5 0 0 0 10.5 4zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z",
+  chevron: "M6.4 8.6 12 14.2l5.6-5.6L19 10l-7 7-7-7z",
+  check: "M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6 11-11-1.4-1.4z",
+  download: "M11 4h2v8.6l3.3-3.3 1.4 1.4L12 16.4l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z",
+  loop: "M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z"
 };
+var ICON_NAMES = Object.keys(ICON_PATHS);
+function iconId(id, name) {
+  return `${id}-i-${name}`;
+}
+function iconSprite(id, names) {
+  const symbols = ICON_NAMES.filter((n) => names.includes(n)).map((n) => `<symbol id="${escapeHtml(iconId(id, n))}" viewBox="0 0 24 24"><path d="${ICON_PATHS[n]}"/></symbol>`).join("");
+  return `<svg class="ws-sprite" data-ws-sprite="${escapeHtml(id)}" width="0" height="0" aria-hidden="true" focusable="false">${symbols}</svg>`;
+}
+function icon(id, name, extraClass = "") {
+  const cls = extraClass ? `ws-icon ${extraClass}` : "ws-icon";
+  return `<svg class="${cls}" aria-hidden="true" focusable="false"><use href="#${escapeHtml(iconId(id, name))}"/></svg>`;
+}
 
 // src/js/data/bpm.ts
 function bpmExtent(range) {
@@ -339,7 +372,15 @@ var DEFAULT_STRINGS = {
   nowPlaying: "Playing {title}",
   playError: "Could not play {title}",
   loadError: "Could not load the sounds.",
-  noSounds: "No sounds."
+  noSounds: "No sounds.",
+  rowBpm: "{bpm} BPM",
+  rowKey: "key {key}",
+  rowDuration: "{duration}",
+  keyMajor: "{note} major",
+  keyMinor: "{note} minor",
+  noteSharp: "{note} sharp",
+  noteFlat: "{note} flat",
+  listSeparator: ", "
 };
 var SORT_LABEL_KEYS = {
   default: "sortDefault",
@@ -359,6 +400,27 @@ function bpmLabel(filter, extent, strings = DEFAULT_STRINGS) {
 function countText(shown, total, strings = DEFAULT_STRINGS) {
   if (shown !== total) return fill(strings.countFiltered, { count: shown, total });
   return total === 1 ? strings.countOne : fill(strings.count, { count: total });
+}
+function spokenKey(key, strings = DEFAULT_STRINGS) {
+  const k = parseKey(key);
+  if (!k) return key;
+  const letter = k.root[0], acc = k.root.slice(1);
+  const note = acc === "#" ? fill(strings.noteSharp, { note: letter }) : acc === "b" ? fill(strings.noteFlat, { note: letter }) : letter;
+  return fill(k.minor ? strings.keyMinor : strings.keyMajor, { note });
+}
+function rowSummary(sound, columns, strings = DEFAULT_STRINGS) {
+  const parts = [];
+  for (const c of columns) {
+    if (c === "type" && sound.type) parts.push(sound.type);
+    else if (c === "bpm" && sound.bpm != null) parts.push(fill(strings.rowBpm, { bpm: sound.bpm }));
+    else if (c === "key" && sound.key) parts.push(fill(strings.rowKey, { key: spokenKey(sound.key, strings) }));
+    else if (c === "duration") {
+      const d = formatDuration(sound.duration);
+      if (d) parts.push(fill(strings.rowDuration, { duration: d }));
+    }
+  }
+  if (sound.loop) parts.push(strings.isLoop);
+  return parts.join(strings.listSeparator);
 }
 
 // src/js/render/options.ts
@@ -414,13 +476,6 @@ function resolveRenderOptions(options = {}) {
   };
 }
 
-// src/js/shared/utils.ts
-function hashString(str) {
-  let hash = 5381;
-  for (const char of str) hash = hash * 33 + char.codePointAt(0) >>> 0;
-  return hash;
-}
-
 // src/js/render/markup.ts
 function idBase(sounds) {
   const signature = [sounds.length, ...sounds.map((s) => s.url)].join("|");
@@ -443,11 +498,11 @@ function toolbarPlan(f, o) {
 function loopsByDefault(loop, f) {
   return loop == null ? f.loops > 0 : !!loop;
 }
-function renderSearch(s) {
+function renderSearch(s, id) {
   return h(
     "label",
     { class: "ws-search" },
-    ICONS.search,
+    icon(id, "search"),
     h("span", { class: "ws-sr" }, text(s.search)),
     h("input", { type: "search", class: "ws-search-input", "data-ws-search": true, placeholder: s.searchPlaceholder, autocomplete: "off", spellcheck: "false" })
   );
@@ -461,7 +516,7 @@ function renderMenu(name, m) {
     { type: "button", class: "ws-menu-btn", "data-ws-menu-btn": true, "aria-haspopup": "listbox", "aria-expanded": "false", "aria-controls": listId },
     m.prefix ? h("span", { class: "ws-menu-prefix" }, text(m.prefix)) : h("span", { class: "ws-sr" }, text(`${m.label}: `)),
     h("span", { class: "ws-menu-value", "data-ws-menu-value": true }, text(current.label)),
-    ICONS.chevron
+    icon(m.id, "chevron", "ws-menu-chevron")
   );
   const search = searchable && h("input", {
     type: "search",
@@ -479,7 +534,7 @@ function renderMenu(name, m) {
   const options = m.options.map((o, i) => h(
     "li",
     { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "data-alt": o.alt, "aria-selected": String(o === current) },
-    ICONS.check,
+    icon(m.id, "check", "ws-menu-check"),
     h("span", { class: "ws-menu-text" }, text(o.label)),
     o.count != null && h("span", { class: "ws-menu-count" }, text(o.count))
   ));
@@ -516,7 +571,7 @@ function renderBpmMenu({ id, s, range }) {
       { type: "button", class: "ws-menu-btn", "data-ws-menu-btn": true, "aria-haspopup": "dialog", "aria-expanded": "false", "aria-controls": popId },
       h("span", { class: "ws-sr" }, text(`${s.bpm}: `)),
       h("span", { class: "ws-menu-value", "data-ws-menu-value": true }, text(bpmLabel({}, range, s))),
-      ICONS.chevron
+      icon(id, "chevron", "ws-menu-chevron")
     ),
     h(
       "div",
@@ -551,8 +606,8 @@ function renderLoopFilter(s) {
     button("one-shot", s.oneShots)
   );
 }
-function renderLoopToggle(s, pressed) {
-  return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": String(pressed) }, ICONS.loop, h("span", {}, text(s.loop)));
+function renderLoopToggle(s, pressed, id) {
+  return h("button", { type: "button", class: "ws-loop", "data-ws-loop": true, "aria-pressed": String(pressed) }, icon(id, "loop"), h("span", {}, text(s.loop)));
 }
 function renderChip(value, label, count, pressed) {
   return h(
@@ -586,7 +641,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       value: plan.sorts[0],
       options: plan.sorts.map((k) => ({ value: k, label: s[SORT_LABEL_KEYS[k]] }))
     }),
-    plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f))
+    plan.loop && renderLoopToggle(s, loopsByDefault(o.loop, f), id)
   ].filter(Boolean);
   const chips = plan.types === "chips" && h(
     "div",
@@ -598,7 +653,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
   return h(
     "div",
     { class: "ws-toolbar" },
-    plan.search && renderSearch(s),
+    plan.search && renderSearch(s, id),
     controls.length > 0 && h("div", { class: "ws-controls" }, controls),
     // The chips and the count share a row (the count alone without chips).
     (chips || count) && h("div", { class: "ws-meta" }, chips, count)
@@ -610,48 +665,65 @@ var CELLS = {
   key: (sound) => text(sound.key),
   duration: (sound) => text(formatDuration(sound.duration))
 };
-function renderRow(sound, index, o, hidden = false) {
+function renderRow(sound, index, o, id) {
   const s = o.strings;
   const vars = { title: sound.title };
   const cells = o.columns.map((c) => h("span", { class: `ws-cell ws-${c}` }, CELLS[c](sound)));
+  const summary = rowSummary(sound, o.columns, s);
+  const described = summary ? `${id}-d${index}` : null;
   return h(
     "li",
-    {
-      class: "ws-row",
-      "data-ws-index": index,
-      "data-ws-id": sound.id,
-      "data-url": sound.url,
-      "data-title": sound.title,
-      "data-type": sound.type || null,
-      "data-bpm": sound.bpm,
-      "data-key": sound.key || null,
-      "data-duration": sound.duration,
-      "data-tags": sound.tags?.length ? sound.tags.join(",") : null,
-      "data-peaks": sound.peaks ? encodePeaks(sound.peaks) : null,
-      "data-waveform": sound.waveform,
-      "data-download": sound.download,
-      "data-loop": sound.loop ? "true" : null,
-      hidden
-    },
-    h("button", { type: "button", class: "ws-play", "aria-pressed": "false", "aria-label": fill(s.play, vars) }, ICONS.play, ICONS.pause),
+    { class: "ws-row", "data-ws-index": index },
+    h(
+      "button",
+      { type: "button", class: "ws-play", "aria-pressed": "false", "aria-label": fill(s.play, vars), "aria-describedby": described },
+      icon(id, "play", "ws-icon-play"),
+      icon(id, "pause", "ws-icon-pause")
+    ),
     h(
       "span",
       { class: "ws-cell ws-title" },
       h("span", { class: "ws-title-text" }, text(sound.title)),
-      // A loop says so beside its name; a one-shot carries nothing.
-      sound.loop && h("span", { class: "ws-loop-mark", title: s.isLoop }, ICONS.loop, h("span", { class: "ws-sr" }, text(s.isLoop)))
+      // A loop says so beside its name (and in the read-out); a one-shot carries nothing.
+      sound.loop && h("span", { class: "ws-loop-mark", title: s.isLoop, "aria-hidden": "true" }, icon(id, "loop"))
     ),
     // Wide rows: `display: contents` makes each cell a column. Narrow
     // rows: one line under the title.
-    cells.length > 0 && h("span", { class: "ws-cells" }, cells),
-    o.player === "inline" && h(
-      "span",
-      { class: "ws-wave", role: "slider", "aria-label": fill(s.seek, vars), "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": "0", tabindex: "-1" },
-      h("canvas", { class: "ws-canvas", "aria-hidden": "true" })
-    ),
+    cells.length > 0 && h("span", { class: "ws-cells", "aria-hidden": "true" }, cells),
+    summary && h("span", { class: "ws-sr", id: described }, text(summary)),
+    o.player === "inline" && h("span", { class: "ws-wave", "aria-hidden": "true" }, h("canvas", { class: "ws-canvas" })),
     // Optional, per sound: a plain link. Rows without one carry nothing.
-    sound.download && h("a", { class: "ws-download", href: sound.download, download: true, "aria-label": fill(s.download, vars) }, ICONS.download)
+    sound.download && h("a", { class: "ws-download", href: sound.download, download: true, "aria-label": fill(s.download, vars) }, icon(id, "download"))
   );
+}
+function renderSoundsData(list) {
+  const data = list.map((s, i) => {
+    const d = {};
+    if (s.id !== `sound-${i + 1}`) d.id = s.id;
+    d.url = s.url;
+    d.title = s.title;
+    if (s.type) d.type = s.type;
+    if (s.bpm != null) d.bpm = s.bpm;
+    if (s.key) d.key = s.key;
+    if (s.duration != null) d.duration = s.duration;
+    if (s.tags.length) d.tags = s.tags;
+    if (s.peaks) d.peaks = encodePeaks(s.peaks);
+    if (s.waveform) d.waveform = s.waveform;
+    if (s.download) d.download = s.download;
+    if (s.loop) d.loop = true;
+    return d;
+  });
+  return `<script type="application/json" data-ws-sounds>${JSON.stringify(data).replace(/</g, "\\u003c")}<\/script>`;
+}
+function iconsUsed(plan, list) {
+  const names = [];
+  if (list.length) names.push("play", "pause");
+  if (plan.search) names.push("search");
+  if (plan.types === "menu" || plan.key || plan.sorts.length) names.push("chevron", "check");
+  else if (plan.bpm) names.push("chevron");
+  if (plan.loop || list.some((s) => s.loop)) names.push("loop");
+  if (list.some((s) => s.download)) names.push("download");
+  return names;
 }
 function renderFooter({ o, s, total }) {
   const page = o.pageSize > 0 ? o.pageSize : total;
@@ -671,15 +743,19 @@ function renderFooter({ o, s, total }) {
   ].join("");
 }
 function renderSounds(sounds, options = {}) {
+  return renderList(normalizeSounds(sounds), options, true);
+}
+function renderList(list, options, withData) {
   const o = resolveRenderOptions(options);
-  const list = normalizeSounds(sounds);
   const ctx = { o, s: o.strings, f: facets(list, o), total: list.length, id: o.idPrefix || idBase(list) };
-  const page = o.pageSize > 0 ? o.pageSize : Infinity;
-  return renderToolbar(toolbarPlan(ctx.f, o), ctx) + h(
+  const plan = toolbarPlan(ctx.f, o);
+  const index = new Map(list.map((sound, i) => [sound, i]));
+  const first = sortSounds(list, availableSorts(o.sorts, ctx.f)[0] || "default").slice(0, firstRender(o.pageSize));
+  return iconSprite(ctx.id, iconsUsed(plan, list)) + renderToolbar(plan, ctx) + h(
     "ul",
     { class: `ws-list ws-list--${o.player}`, role: "list", "data-ws-list": true },
-    list.map((sound, i) => renderRow(sound, i, o, i >= page))
-  ) + renderFooter(ctx);
+    first.map((sound) => renderRow(sound, index.get(sound), o, ctx.id))
+  ) + renderFooter(ctx) + (withData ? renderSoundsData(list) : "");
 }
 function renderOptionAttributes(options = {}) {
   const set = pickRenderOptions(options);

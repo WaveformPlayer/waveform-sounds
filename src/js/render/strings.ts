@@ -7,7 +7,9 @@
  */
 
 import {bpmRangeFromFilter, hasBpmFilter} from '../data/bpm.js';
-import type {SoundsSort, WaveformSoundsStrings} from '../types.js';
+import {parseKey} from '../data/keys.js';
+import {formatDuration} from '../data/sounds.js';
+import type {Sound, SoundsColumn, SoundsSort, WaveformSoundsStrings} from '../types.js';
 
 /** The English defaults. */
 export const DEFAULT_STRINGS: WaveformSoundsStrings = {
@@ -53,6 +55,14 @@ export const DEFAULT_STRINGS: WaveformSoundsStrings = {
     playError: 'Could not play {title}',
     loadError: 'Could not load the sounds.',
     noSounds: 'No sounds.',
+    rowBpm: '{bpm} BPM',
+    rowKey: 'key {key}',
+    rowDuration: '{duration}',
+    keyMajor: '{note} major',
+    keyMinor: '{note} minor',
+    noteSharp: '{note} sharp',
+    noteFlat: '{note} flat',
+    listSeparator: ', ',
 };
 
 /** The label each sort order shows in the Sort menu. */
@@ -98,4 +108,46 @@ export function bpmLabel(filter: {bpmMin?: string|number, bpmMax?: string|number
 export function countText(shown: number, total: number, strings: typeof DEFAULT_STRINGS = DEFAULT_STRINGS): string {
     if (shown !== total) return fill(strings.countFiltered, {count: shown, total});
     return total === 1 ? strings.countOne : fill(strings.count, {count: total});
+}
+
+/**
+ * A key as a screen reader should say it: "Bm" → "B minor", "F#" → "F
+ * sharp major" (a bare "F#m" is read "F number m"). A label that isn't a
+ * key is said as written.
+ *
+ * @param key - A normalised key.
+ * @param strings
+ */
+export function spokenKey(key: string, strings: WaveformSoundsStrings = DEFAULT_STRINGS): string {
+    const k = parseKey(key);
+    if (!k) return key;
+    const letter = k.root[0], acc = k.root.slice(1);
+    const note = acc === '#' ? fill(strings.noteSharp, {note: letter}) : acc === 'b' ? fill(strings.noteFlat, {note: letter}) : letter;
+    return fill(k.minor ? strings.keyMinor : strings.keyMajor, {note});
+}
+
+/**
+ * What a row's cells say, for a screen reader: the visible cells read "Bass
+ * loops 130 Bm 0:07"; this reads "Bass loops, 130 BPM, key B minor, 0:07"
+ * (and ", Loop" for a loop). Only the columns the row shows, only the
+ * values it has. Since 2.2.0.
+ *
+ * @param sound
+ * @param columns - The row's columns, in order.
+ * @param strings
+ * @returns '' when there is nothing to say.
+ */
+export function rowSummary(sound: Sound, columns: SoundsColumn[], strings: WaveformSoundsStrings = DEFAULT_STRINGS): string {
+    const parts: string[] = [];
+    for (const c of columns) {
+        if (c === 'type' && sound.type) parts.push(sound.type);
+        else if (c === 'bpm' && sound.bpm != null) parts.push(fill(strings.rowBpm, {bpm: sound.bpm}));
+        else if (c === 'key' && sound.key) parts.push(fill(strings.rowKey, {key: spokenKey(sound.key, strings)}));
+        else if (c === 'duration') {
+            const d = formatDuration(sound.duration);
+            if (d) parts.push(fill(strings.rowDuration, {duration: d}));
+        }
+    }
+    if (sound.loop) parts.push(strings.isLoop);
+    return parts.join(strings.listSeparator);
 }

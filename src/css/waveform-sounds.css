@@ -84,6 +84,10 @@ waveform-sounds:not(:defined):empty { min-height: var(--ws-element-height, 0); }
     border: 0;
 }
 .ws-icon { width: 1em; height: 1em; fill: currentColor; flex: none; }
+/* The icons' one definition per list (each icon is a <use> of it): out of
+ * the flow, so its empty line box adds no height. Not display: none, which
+ * some engines treat as removing what it defines. */
+.ws-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* ── Controls: shared ────────────────────────────────────────────────── */
 /* The pill-shaped controls share one frame... */

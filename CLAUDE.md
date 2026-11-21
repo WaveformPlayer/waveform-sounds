@@ -11,7 +11,10 @@ A searchable, filterable list of sounds (sample-pack previews) built on
   `downloadName` on loadTrack like 2.0; a track switch fires NO onPause (the
   media load drops the queued pause); play() after a failed load rejects
   with no onPlay). `test/unit/render/golden.test.js` holds the server markup
-  byte-identical to the published 2.0.0 (`test/fixtures/render-2.0.0.json`).
+  byte-identical to 2.2.0 (`test/fixtures/render-2.2.0.json`; regenerate only
+  on purpose: `npm run build && node scripts/write-golden.mjs`, and say so in
+  the CHANGELOG under "Changed (markup)"). `render-2.0.0.json` is markup from
+  before 2.2 (rows carrying their sounds), which the runtime still adopts.
 - `npm run build` — iife, min, esm, no-autoinit (esm), render (esm), css,
   then `build:types` (declarations + maps into `types/`, generated: never edit them).
   No CommonJS: `require()` of the ESM works on Node >=22.12 (`engines`).
@@ -20,7 +23,7 @@ A searchable, filterable list of sounds (sample-pack previews) built on
   entries, `/render` in plain Node (no DOM), types (bundler + nodenext), both
   script-tag builds in jsdom.
 - `npm run typecheck` (strict `tsc`, must be 0 errors) · `npm run lint` (Biome).
-- `npm run size` — currently ~17.6 KB JS / ~3.5 KB CSS gzipped.
+- `npm run size` — currently ~19.7 KB JS / ~3.5 KB CSS gzipped.
 
 ## Architecture (`src/js/`) — by layer
 
@@ -31,14 +34,15 @@ core/     WaveformSounds.ts   the class: orchestration only
           element.ts          the <waveform-sounds> custom element (+ its definer)
           engine.ts           the engine player's options + per-sound peaks
           options.ts          DEFAULT_OPTIONS, data-* parsing, merge
-data/     sounds.ts           pure: normalise, peaks codec, keys, facets, filter, sort
+data/     sounds.ts           pure: normalise, peaks codec, facets, filter, sort
+          keys.ts             pure: enharmonic classes, merged key entries, key order
           url-state.ts        pure: filters <-> the address
-          navigation.ts       pure: key targets, seek steps, paging
+          navigation.ts       pure: key targets, seek steps, paging, render chunks
 render/   markup.ts           server-safe markup (toolbarPlan, renderMenu, renderRow…)
           options.ts          render options + validation (DOM-free)
-          html.ts · icons.ts · strings.ts
+          html.ts · icons.ts (the sprite) · strings.ts (+ row read-outs)
 dom/      menus.ts            the dropdown controller (+ pure optionMatches/stepIndex)
-          rows.ts             row DOM: read back, index, order, visible
+          rows.ts             row DOM: read the JSON / legacy rows back, index, layoutRows
           draw.ts · colors.ts canvas drawing; colour + page-surface resolution
 shared/   utils.ts            clamp, pointerFraction, isTyping, emit, hashString
 ```
@@ -55,6 +59,18 @@ core. Every function and method carries a JSDoc block.
 ## Rules
 - **Never a WaveformPlayer per row.** A pack can have 300 sounds. Rows are
   pictures (low-res peaks, drawn only when on screen); ONE engine plays.
+- **Rows exist only while shown** (2.2): the page, or with paging off
+  `RENDER_CHUNK` (50) more each time the last row nears the viewport
+  (`_watchEnd`). `this.rows[i]` caches a row once made (detached when not
+  shown); `_layout()` puts exactly the shown rows in the list
+  (`layoutRows`, which never moves rows already in order). Anything that
+  walks "the rows" must work from `_shown` / `this.sounds`, not the DOM,
+  and per-sound state a row shows must be re-applied when it is rendered
+  (`_adoptRow`: current, slider, `_failed`). The server renders the same
+  first rows in the same (starting-sort) order, and every sound as JSON;
+  a test asserts adopting it mutates no row.
+- **One seek slider:** only the current row's `.ws-wave` has
+  `role="slider"` / tabindex (`_paintWave`); the rest are `aria-hidden`.
 - **Supplied peaks also stop the hidden engine decoding the file** (the core
   only decodes when it has no peaks). A sound without peaks borrows the
   engine's decoded ones after its first play.
@@ -80,8 +96,10 @@ core. Every function and method carries a JSDoc block.
   dispatches the plain name (`play`, …), like the core. Play/pause events
   follow the SOUND (`_announced`), not the `playing` flag.
 - **Server markup is a contract** (the golden test): runtime-only state
-  (roving tabindex, `aria-valuetext`, the empty-pack text) is set by the
-  runtime, never added to `renderSounds` output.
+  (roving tabindex, the slider, `aria-valuetext`, the empty-pack text) is
+  set by the runtime, never added to `renderSounds` output. Icon symbol ids
+  and row read-out ids carry the list's id prefix (`data-ws-sprite` tells
+  the runtime which).
 - `render/`, `data/` and `shared/` must stay DOM-free: their tests run in the node
   environment and fail if they touch `window`.
 

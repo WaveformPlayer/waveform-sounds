@@ -148,6 +148,22 @@ export interface WaveformSoundsStrings {
     loadError: string;
     /** The empty state of a list with no sounds at all. Since 2.1.0. */
     noSounds: string;
+    /** A row's BPM, read out: `{bpm}` ("130 BPM"). Since 2.2.0. */
+    rowBpm: string;
+    /** A row's key, read out: `{key}`, spoken ("key B minor"). Since 2.2.0. */
+    rowKey: string;
+    /** A row's length, read out: `{duration}` ("0:07"). Since 2.2.0. */
+    rowDuration: string;
+    /** A major key, spoken: `{note}` ("F sharp major"). Since 2.2.0. */
+    keyMajor: string;
+    /** A minor key, spoken: `{note}` ("B minor"). Since 2.2.0. */
+    keyMinor: string;
+    /** A sharp note, spoken: `{note}` is the letter ("F sharp"). Since 2.2.0. */
+    noteSharp: string;
+    /** A flat note, spoken: `{note}` is the letter ("B flat"). Since 2.2.0. */
+    noteFlat: string;
+    /** Between the parts of a row's read-out (", "). Since 2.2.0. */
+    listSeparator: string;
 }
 
 export interface WaveformSoundsOptions {

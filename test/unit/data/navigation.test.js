@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe, it, expect} from 'vitest';
-import {rowTarget, seekTarget, sliderEdgeTarget, pageWindow, limitToReveal, SEEK_STEP, SEEK_END} from '../../../src/js/data/navigation.js';
+import {rowTarget, seekTarget, sliderEdgeTarget, limitToReveal, renderedCount, firstRender, budgetToReveal, RENDER_CHUNK, SEEK_STEP, SEEK_END} from '../../../src/js/data/navigation.js';
 
 describe('rowTarget', () => {
     it.each([
@@ -21,11 +21,18 @@ describe('seekTarget', () => {
 });
 
 describe('paging', () => {
-    it('pageWindow shows the first `limit` and counts the rest', () => {
-        const {visible, remaining} = pageWindow(['a', 'b', 'c'], 2);
-        expect([...visible]).toEqual(['a', 'b']);
-        expect(remaining).toBe(1);
-        expect(pageWindow(['a'], Infinity).remaining).toBe(0);
+    it('rows exist for the page, or with paging off for the chunks rendered so far', () => {
+        expect(renderedCount(300, 50, 999)).toBe(50);
+        expect(renderedCount(30, 50, 999)).toBe(30);
+        expect(renderedCount(300, Infinity, 100)).toBe(100);
+        expect(renderedCount(300, Infinity, Infinity)).toBe(300);
+        expect(firstRender(20)).toBe(20);
+        expect(firstRender(0)).toBe(RENDER_CHUNK);
+    });
+    it('budgetToReveal grows by whole chunks, only when needed', () => {
+        expect(budgetToReveal(50, 10)).toBe(50);
+        expect(budgetToReveal(50, 50)).toBe(100);
+        expect(budgetToReveal(50, 999)).toBe(1000);
     });
     it('limitToReveal grows the page only when needed', () => {
         expect(limitToReveal(2, 5)).toBe(6);

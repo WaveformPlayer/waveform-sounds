@@ -160,6 +160,11 @@ before the first play.)
 | Space / Enter | Play / pause |
 | `/` | Search |
 
+For a screen reader each row reads as a sentence ("Bass loops, 130 BPM,
+key B minor, 0:07") that also describes its play button, and only the
+playing (or paused) sound's waveform is a seek slider. The words are
+`strings` (`rowBpm`, `rowKey`, `keyMinor`, `noteSharp`, …).
+
 ## Server rendering
 
 ```js
@@ -167,7 +172,10 @@ import {renderSounds} from '@arraypress/waveform-sounds/render';
 const html = `<div class="waveform-sounds waveform-sounds--inline" data-waveform-sounds>${renderSounds(sounds, options)}</div>`;
 ```
 
-The runtime adopts that markup instead of rebuilding it. Keep the
+The runtime adopts that markup instead of rebuilding it. It holds the
+rows the list starts with (the first page; with `pageSize: 0` the first
+50) and every sound once as JSON; the runtime renders the other rows as
+they are revealed (Show more, a filter, scrolling, ↓). Keep the
 `waveform-sounds` classes on the wrapper (`waveform-sounds--strip` for the
 strip): the stylesheet hangs off them, so without them the list paints
 unstyled until the script runs and then shifts. `renderSoundsElement(sounds,

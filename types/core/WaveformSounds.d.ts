@@ -27,7 +27,7 @@
  */
 import { facets, formatDuration, matches, normalizeKey, normalizeSounds, parseManifest, sortSounds } from '../data/sounds.js';
 import { DEFAULT_OPTIONS } from './options.js';
-import { renderSounds } from '../render/markup.js';
+import type { renderSounds } from '../render/markup.js';
 import type { decodePeaks, encodePeaks } from '../data/sounds.js';
 import type { WaveformPlayer } from '@arraypress/waveform-player';
 import type { Sound, SoundsFilter, SoundsSort, WaveformSoundsInstanceEventMap, WaveformSoundsOptions, WaveformSoundsStrings } from '../types.js';

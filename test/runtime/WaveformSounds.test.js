@@ -2,6 +2,7 @@ import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest';
 import {settle, MockWaveformPlayer} from '../setup.js';
 import {WaveformSounds} from '../../src/js/entry.js';
 import {renderSoundsElement} from '../../src/js/render/markup.js';
+import golden200 from '../fixtures/render-2.0.0.json';
 
 const SOUNDS = [
     {url: '/s/bass-01.mp3', title: 'Bass Loop 01', type: 'Bass', bpm: 128, key: 'Fm', duration: 8, peaks: '204060'},
@@ -22,8 +23,10 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
+// Rows are in the DOM only while shown (since 2.2.0), so the rows ARE the visible ones.
 const rows = () => [...host.querySelectorAll('[data-ws-index]')];
-const visibleTitles = () => rows().filter((r) => !r.hidden).map((r) => r.dataset.title);
+const titleOf = (row) => row.querySelector('.ws-title-text').textContent;
+const visibleTitles = () => rows().map(titleOf);
 async function make(options = {}) {
     const ws = new WaveformSounds(host, {sounds: SOUNDS, ...options});
     await ws.ready;
@@ -64,14 +67,30 @@ describe('building the list', () => {
         expect(before).toContain('data-ws-list');
     });
 
-    it('renumbers adopted rows so a dropped row leaves no hole', async () => {
+    it('adopted markup carries every sound as JSON: a row missing from it is rendered again', async () => {
         host.innerHTML = renderSoundsElement(SOUNDS);
         const el = host.firstElementChild;
         el.querySelector('[data-ws-index="1"]').remove();
         const ws = new WaveformSounds(el);
         await ws.ready;
-        expect(ws.sounds.map((s) => s.title)).toEqual(['Bass Loop 01', 'Bass Loop 02', 'Crash']);
-        expect([...el.querySelectorAll('[data-ws-index]')].map((r) => r.dataset.wsIndex)).toEqual(['0', '1', '2']);
+        expect(ws.sounds.map((s) => s.title)).toEqual(['Bass Loop 01', 'Drum Loop 01', 'Bass Loop 02', 'Crash']);
+        expect(rows().map((r) => r.dataset.wsIndex)).toEqual(['0', '1', '2', '3']);
+    });
+
+    it('adopts markup from before 2.2 (every row carrying its sound), renumbering around a dropped row', async () => {
+        const legacy = golden200.cases[0].html;
+        host.innerHTML = `<div data-waveform-sounds>${legacy}</div>`;
+        const el = host.firstElementChild;
+        el.querySelector('[data-ws-index="1"]').remove();
+        const ws = new WaveformSounds(el);
+        await ws.ready;
+        expect(ws.sounds.map((s) => s.title)).toEqual(['Bass Loop 01', 'Bass <b>02</b>', 'Crash']);
+        expect(rows().map((r) => r.dataset.wsIndex)).toEqual(['0', '1', '2']);
+        // Its waveforms were all sliders: only the current one is now.
+        ws.play(1);
+        await settle();
+        expect(el.querySelectorAll('[role="slider"]')).toHaveLength(1);
+        expect(el.querySelector('[data-ws-index="0"] .ws-wave').getAttribute('aria-hidden')).toBe('true');
     });
 
     it('fetches a manifest when given no sounds', async () => {
@@ -294,13 +313,13 @@ describe('filtering, sorting and paging', () => {
         list.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
         list.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}));
         list.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}));
-        expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
+        expect(rows().map(titleOf)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
     });
 
     it('starts in the first offered sort order', async () => {
         const ws = await make({sorts: ['title', 'default']});
         expect(ws.sortBy).toBe('title');
-        expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 01', 'Bass Loop 02', 'Crash', 'Drum Loop 01']);
+        expect(rows().map(titleOf)).toEqual(['Bass Loop 01', 'Bass Loop 02', 'Crash', 'Drum Loop 01']);
     });
 
     it('detects the page surface for the inverted states, and follows a theme flip', async () => {
@@ -376,7 +395,7 @@ describe('filtering, sorting and paging', () => {
     it('sorting reorders the rows in the DOM', async () => {
         const ws = await make();
         ws.setSort('bpm');
-        expect(rows().map((r) => r.dataset.title)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
+        expect(rows().map(titleOf)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
         expect(host.querySelector('[data-ws-menu="sort"] [data-ws-menu-value]').textContent).toBe('BPM');
     });
 
@@ -794,6 +813,183 @@ describe('drawing', () => {
     });
 });
 
+describe('rows render as they are revealed (2.2)', () => {
+    const many = (n) => Array.from({length: n}, (_, i) => ({url: `/m/${i}.mp3`, title: `Sound ${String(i).padStart(3, '0')}`, type: i % 3 ? 'Loops' : 'Hits', bpm: 100 + (i % 40), duration: 4}));
+    const inDom = () => rows().map((r) => Number(r.dataset.wsIndex));
+    const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true}));
+    // An IntersectionObserver the test drives: `ends()` are the ones watching the list's last row.
+    let observers;
+    beforeEach(() => {
+        observers = [];
+        vi.stubGlobal('IntersectionObserver', class {
+            constructor(cb, opts) { this.cb = cb; this.opts = opts; this.targets = new Set(); observers.push(this); }
+            observe(t) { this.targets.add(t); }
+            unobserve(t) { this.targets.delete(t); }
+            disconnect() { this.targets.clear(); }
+        });
+    });
+    afterEach(() => vi.unstubAllGlobals());
+    const endWatch = () => observers.find((o) => o.opts?.rootMargin === '0px 0px 1200px 0px');
+    const scrollToEnd = () => { const o = endWatch(); o.cb([...o.targets].map((target) => ({target, isIntersecting: true}))); };
+
+    it('paged: only the page is in the DOM; Show more adds the next; a filter shows only its matches', async () => {
+        const ws = await make({sounds: many(120)});
+        expect(inDom()).toHaveLength(50);
+        ws.showMore();
+        expect(inDom()).toHaveLength(100);
+        ws.setFilter({type: 'Hits'});
+        expect(inDom()).toEqual(ws.visible.slice(0, 40).map((s) => ws.sounds.indexOf(s)));
+        ws.clearFilters();
+        expect(inDom()).toEqual([...Array(50).keys()]);
+        expect(host.querySelector('[data-ws-count]').textContent).toBe('120 sounds');
+    });
+
+    it('paging off: a chunk at a time, the next as the last row nears the viewport', async () => {
+        const ws = await make({sounds: many(120), pageSize: 0});
+        expect(inDom()).toHaveLength(50);
+        expect(endWatch().targets.has(ws.rows[49])).toBe(true);
+        scrollToEnd();
+        expect(inDom()).toHaveLength(100);
+        scrollToEnd();
+        expect(inDom()).toHaveLength(120);
+        expect(endWatch().targets.size).toBe(0); // nothing left to render
+        expect(host.querySelector('[data-ws-more]').hidden).toBe(true);
+        ws.setFilter({query: 'sound'});
+        expect(inDom()).toHaveLength(50); // a new filter starts from one chunk
+    });
+
+    it('sorting re-orders only the rows shown, and clear / sort stay correct across unrendered rows', async () => {
+        const ws = await make({sounds: many(120), pageSize: 0});
+        ws.setSort('bpm');
+        const expected = ws.visible.slice(0, 50).map((s) => ws.sounds.indexOf(s));
+        expect(inDom()).toEqual(expected);
+        ws.setSort('default');
+        expect(inDom()).toEqual([...Array(50).keys()]);
+    });
+
+    it('↓ past the last rendered row renders the next and moves there; End goes to the very last', async () => {
+        await make({sounds: many(120), pageSize: 0});
+        const last = rows()[49].querySelector('.ws-play');
+        last.focus();
+        key(last, 'ArrowDown');
+        expect(document.activeElement).toBe(host.querySelector('[data-ws-index="50"] .ws-play'));
+        key(document.activeElement, 'End');
+        expect(document.activeElement).toBe(host.querySelector('[data-ws-index="119"] .ws-play'));
+        key(document.activeElement, 'Home');
+        expect(document.activeElement).toBe(host.querySelector('[data-ws-index="0"] .ws-play'));
+    });
+
+    it('autoAdvance and next() reach unrendered rows, and the live region follows', async () => {
+        const ws = await make({sounds: many(60), pageSize: 0, autoAdvance: true});
+        ws.play(49);
+        await settle();
+        MockWaveformPlayer.instances[0]._end();
+        await settle();
+        expect(ws.current.title).toBe('Sound 050');
+        const row = host.querySelector('[data-ws-index="50"]');
+        expect(row.classList.contains('is-current')).toBe(true);
+        expect(host.querySelector('[data-ws-status]').textContent).toBe('Playing Sound 050');
+    });
+
+    it('a current row filtered away and back keeps its state (current, the slider)', async () => {
+        const ws = await make({sounds: many(30)});
+        ws.play(1);
+        await settle();
+        const row = ws.rows[1];
+        ws.setFilter({type: 'Hits'}); // sound 1 is a loop
+        expect(row.isConnected).toBe(false);
+        ws.clearFilters();
+        expect(row.isConnected).toBe(true);
+        expect(row.classList.contains('is-playing')).toBe(true);
+        expect(row.querySelector('.ws-wave').getAttribute('role')).toBe('slider');
+    });
+
+    it('re-sorting keeps focus on the focused row', async () => {
+        const ws = await make({sounds: many(20)});
+        const btn = ws.rows[5].querySelector('.ws-play');
+        btn.focus();
+        ws.setSort('bpm');
+        expect(document.activeElement).toBe(btn);
+        expect(inDom()).toEqual(ws.visible.map((s) => ws.sounds.indexOf(s)));
+    });
+
+    it('a failure is remembered for a row rendered later', async () => {
+        const ws = await make({sounds: many(120), pageSize: 0});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        ws.play(80);
+        await settle();
+        ws.setFilter({type: 'Hits'});
+        MockWaveformPlayer.instances[0].options.onError(new Error('404'));
+        ws.clearFilters();
+        ws._reveal(80);
+        expect(ws.rows[80].classList.contains('is-error')).toBe(true);
+        vi.restoreAllMocks();
+    });
+});
+
+describe('one seek slider (2.2)', () => {
+    const sliders = () => [...host.querySelectorAll('[role="slider"]')];
+
+    it('only the current row\'s waveform is a slider; the others are pictures', async () => {
+        const ws = await make();
+        expect(sliders()).toHaveLength(0);
+        expect(rows().every((r) => r.querySelector('.ws-wave').getAttribute('aria-hidden') === 'true' && !r.querySelector('.ws-wave').hasAttribute('tabindex'))).toBe(true);
+        ws.play(1);
+        await settle();
+        expect(sliders()).toEqual([rows()[1].querySelector('.ws-wave')]);
+        const wave = sliders()[0];
+        expect(wave.getAttribute('aria-label')).toBe('Seek Drum Loop 01');
+        expect(wave.hasAttribute('aria-hidden')).toBe(false);
+        ws.play(2);
+        await settle();
+        expect(sliders()).toEqual([rows()[2].querySelector('.ws-wave')]);
+        expect(wave.getAttribute('aria-hidden')).toBe('true');
+        expect(wave.hasAttribute('tabindex')).toBe(false);
+        expect(wave.hasAttribute('aria-valuenow')).toBe(false);
+    });
+});
+
+describe('server markup is adopted exactly (2.2)', () => {
+    const many = (n) => Array.from({length: n}, (_, i) => ({url: `/m/${i}.mp3`, title: `S${i}`, type: i % 2 ? 'A' : 'B', key: ['A#m', 'Bbm', 'C'][i % 3], peaks: 'wp1:AAECAwQ', loop: !!(i % 2)}));
+
+    it.each([
+        ['paged', {}],
+        ['paging off', {pageSize: 0}],
+        ['a sort first', {sorts: ['title', 'default'], pageSize: 7}],
+        ['strip', {player: 'strip', idPrefix: 'p'}],
+    ])('%s: the runtime moves, adds and removes no row', async (_, options) => {
+        vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
+        try {
+            host.innerHTML = renderSoundsElement(many(80), options);
+            const el = host.firstElementChild;
+            const list = el.querySelector('[data-ws-list]');
+            const before = [...list.children];
+            const changes = [];
+            new MutationObserver((records) => changes.push(...records)).observe(list, {childList: true});
+            const ws = new WaveformSounds(el);
+            await ws.ready;
+            await settle();
+            expect(changes).toEqual([]);
+            expect([...list.children]).toEqual(before);
+            expect(ws.sounds).toHaveLength(80);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('rows rendered later are the server\'s rows, byte for byte', async () => {
+        const sounds = many(80);
+        host.innerHTML = renderSoundsElement(sounds, {pageSize: 10, idPrefix: 'p'});
+        const ws = new WaveformSounds(host.firstElementChild);
+        await ws.ready;
+        ws.showMore();
+        const server = document.createElement('div');
+        server.innerHTML = renderSoundsElement(sounds, {pageSize: 20, idPrefix: 'p'});
+        const html = (root) => [...root.querySelectorAll('[data-ws-index]')].slice(10, 20).map((r) => r.outerHTML.replace(/ tabindex="-1"/g, ''));
+        expect(html(host)).toEqual(html(server));
+    });
+});
+
 describe('download links', () => {
     it('a click on the download link does not toggle playback', async () => {
         const ws = new WaveformSounds(host, {sounds: [{url: '/a.mp3', title: 'Kick', download: '/free/kick.wav'}]});
@@ -1028,7 +1224,7 @@ describe('keyboard', () => {
         const first = rows()[0].querySelector('.ws-play');
         first.focus();
         key(first, 'ArrowDown');
-        expect(document.activeElement).toBe(rows()[2].querySelector('.ws-play'));
+        expect(document.activeElement).toBe(host.querySelector('[data-ws-index="2"] .ws-play'));
     });
 
     it('arrowAudition: false only moves focus', async () => {

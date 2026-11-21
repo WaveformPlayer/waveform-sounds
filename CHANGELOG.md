@@ -4,6 +4,85 @@ All notable changes to `@arraypress/waveform-sounds` are documented here. The
 format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+A lighter, quieter list: rows exist only while shown, icons are defined
+once, a screen reader hears one seek slider and whole sentences, and
+enharmonic keys are one key. **The server-rendered markup changes** (see
+below): nobody depends on 2.x markup yet, so this ships in a minor. Pass
+the same render options to the server and the runtime as before; markup
+rendered by 2.0 / 2.1 is still adopted.
+
+### Changed (markup)
+
+- **`renderSounds` renders only the rows the list starts with** — the
+  first page, or with `pageSize: 0` the first 50 — in its starting order
+  (the first sort offered), and carries EVERY sound once as JSON
+  (`<script type="application/json" data-ws-sounds>`). Rows past the page
+  are no longer in the markup as `hidden` rows, and a row no longer carries
+  its sound as `data-url` / `data-title` / `data-type` / `data-bpm` /
+  `data-key` / `data-duration` / `data-tags` / `data-peaks` /
+  `data-waveform` / `data-download` / `data-loop` / `data-ws-id`: only
+  `data-ws-index`. 1000 sounds, paging off: 1.37 MB → 337 KB of markup
+  (142 → 91 KB gzipped); 300 sounds, default paging: 429 → 147 KB.
+- **Icons are one sprite per list**: a hidden `<svg class="ws-sprite"
+  data-ws-sprite="<idPrefix>">` with a `<symbol id="<idPrefix>-i-<name>">`
+  for each icon the list uses, first in the markup; every icon is
+  `<svg class="ws-icon …"><use href="#…"/></svg>` (the classes are
+  unchanged, so CSS that styles `.ws-icon-play` still does). Still
+  `currentColor`, still drawn under forced colours.
+- **A row reads as a sentence**: its cells are `aria-hidden`, and a
+  visually hidden `<span class="ws-sr" id="<idPrefix>-d<index>">` says
+  "Bass loops, 130 BPM, key B minor, 0:07, Loop" (was "Bass loops 130 Bm
+  0:07"); the play button is `aria-describedby` it. The loop mark is
+  `aria-hidden` (its "Loop" is in the sentence).
+- **No waveform is a slider in the markup**: `.ws-wave` is
+  `aria-hidden="true"` with no role or tabindex; the runtime makes the
+  current row's the seek slider (and only that one).
+- The key menu's options carry `data-alt` (a merged key's other
+  spellings) where there are any.
+- The golden test now holds 2.2.0's markup (`test/fixtures/render-2.2.0.json`,
+  regenerated deliberately by `scripts/write-golden.mjs`); the framework
+  wrappers' SSR / hydration fixtures need regenerating too.
+
+### Added
+
+- **Enharmonic keys are merged, by default** (`mergeEnharmonicKeys`,
+  `data-merge-enharmonic-keys`, a render option): A#m and Bbm, C# and Db
+  are one key-menu entry, a filter on either spelling finds both, the
+  search finds either, and `?key=` accepts either. The entry shows the
+  spelling the pack uses most; a tie goes to the conventional spelling —
+  the key signature with the fewest accidentals (Db, Eb, F#, Ab, Bb, B
+  major; C#m, Ebm, F#m, G#m, Bbm minor; F# and Ebm for the six-and-six
+  ties). Rows show their key as written. `false` keeps spellings apart.
+  `facets()` returns `keyAliases`; `facets`, `matches` and `readUrlState`
+  take `{mergeEnharmonicKeys}`.
+- **Rows are rendered as they are revealed.** With paging, the page; with
+  paging off, 50 at a time as the list scrolls toward its end. Rows that
+  stop being shown (filtered, sorted past the page) leave the DOM, kept
+  with their drawing for when they return. Filtering, sorting, search, the
+  address, ↑/↓/Home/End, `next()`, auto-advance and the "Playing…" status
+  all work across rows not yet rendered (↓ or End renders up to the row
+  it lands on). 1000 sounds, paging off, Chromium: 17,001 → 1,182 DOM
+  elements; load's longest task 287 → 0 ms (SSR: 289 → 0); clear filters
+  82 → 16 ms; sort by name 163 → 35 ms. 300 sounds: 5,325 → 1,182
+  elements, nothing slower beyond noise (a type filter with paging off
+  7 → 13 ms; clear 31 → 20, sort 50 → 17).
+- Strings `rowBpm`, `rowKey`, `rowDuration`, `keyMajor`, `keyMinor`,
+  `noteSharp`, `noteFlat`, `listSeparator` (the rows' read-out).
+
+### Fixed
+
+- **A screen reader met one slider per row** ("Seek …" ×300, each
+  focusable by a click); now only the current sound's waveform is a
+  slider. ←/→ and Home/End on it are unchanged.
+- **Row waveforms draw any peak count well**: with more bars than peaks
+  (64 peaks across a wide row) each peak was repeated into flat steps; now
+  the bars are interpolated. 64, 128 and `wp1:` peaks of any length draw
+  the same shape.
+- A sound that failed to load stays marked when its row is rendered later.
+- Re-sorting keeps focus on the focused row (moving it used to drop focus).
+
 ## [2.1.0] — 2026-11-21
 
 Fixes from an audit of 2.0.0 in Chromium, Firefox and WebKit (and Chrome

@@ -6,6 +6,12 @@ import {facets, normalizeSounds} from '../../../src/js/data/sounds.js';
 import {resolveRenderOptions} from '../../../src/js/render/options.js';
 import * as renderEntry from '../../../src/js/render-entry.js';
 import {pickRenderOptions, RENDER_OPTION_KEYS} from '../../../src/js/render/options.js';
+import {RENDER_CHUNK} from '../../../src/js/data/navigation.js';
+
+/** The sounds' JSON in a list's markup. */
+const dataOf = (html) => JSON.parse(html.match(/<script type="application\/json" data-ws-sounds>(.*?)<\/script>/s)[1]);
+/** The rows a list's markup renders (their indexes, in order). */
+const rowsIn = (html) => [...html.matchAll(/<li class="ws-row" data-ws-index="(\d+)"/g)].map((m) => m[1]);
 
 const sounds = [
     {url: '/a.mp3', title: 'Bass <b>Loop</b>', type: 'Bass', bpm: 128, key: 'F minor', duration: 8, peaks: [0, 1]},
@@ -26,20 +32,22 @@ describe('renderSounds (server)', () => {
         expect(renderEntry.renderSounds(sounds)).toContain('data-ws-list');
     });
 
-    it('escapes text and attributes', () => {
-        const html = renderSounds([{url: '/x".mp3', title: '<script>alert(1)</script>'}]);
+    it('escapes text and attributes, and nothing closes the JSON early', () => {
+        const html = renderSounds([{url: '/x".mp3', title: '<script>alert(1)</script></script>', download: '/d".wav'}]);
         expect(html).not.toContain('<script>');
         expect(html).toContain('&lt;script&gt;');
-        expect(html).toContain('data-url="/x&quot;.mp3"');
+        expect(html).toContain('href="/d&quot;.wav"');
+        expect(html.match(/<\/script>/g)).toHaveLength(1);
+        expect(dataOf(html)[0].title).toBe('<script>alert(1)</script></script>');
     });
 
-    it('writes every field the runtime reads back', () => {
-        const html = renderSounds(sounds);
+    it('carries every sound as JSON the runtime reads back to the same sounds', () => {
+        const input = [...sounds, {url: '/c.mp3', id: 'kick', tags: 'dark, wet', loop: 'true', download: '/c.wav', waveform: '/c.json', duration: '0:03'}, {url: '/d.mp3', title: 'Dup', id: 'kick'}];
+        const html = renderSounds(input);
+        expect(normalizeSounds(dataOf(html))).toEqual(normalizeSounds(input));
+        // What normalising fills in is left out.
+        expect(dataOf(html)[0]).toEqual({url: '/a.mp3', title: 'Bass <b>Loop</b>', type: 'Bass', bpm: 128, key: 'Fm', duration: 8, peaks: '00ff'});
         expect(html).toContain('data-ws-index="0"');
-        expect(html).toContain('data-bpm="128"');
-        expect(html).toContain('data-key="Fm"');
-        expect(html).toContain('data-duration="8"');
-        expect(html).toContain('data-peaks="00ff"');
         expect(html).toContain('>0:08<');
     });
 
@@ -93,8 +101,7 @@ describe('renderSounds (server)', () => {
     it('a sound with a download link gets a download button; others get nothing', () => {
         const html = renderSounds([{url: '/a.mp3', title: 'Kick', download: '/free/kick.wav'}, {url: '/b.mp3', title: 'Snare'}]);
         expect(html).toContain('<a class="ws-download" href="/free/kick.wav" download aria-label="Download Kick">');
-        expect(html.match(/ws-download/g)).toHaveLength(1);
-        expect(html).toContain('data-download="/free/kick.wav"');
+        expect(html.match(/class="ws-download"/g)).toHaveLength(1);
     });
 
     it('idPrefix makes two lists of the same sounds distinct', () => {
@@ -109,12 +116,59 @@ describe('renderSounds (server)', () => {
         expect(a).not.toBe(b);
     });
 
-    it('pages: rows past pageSize are hidden and "Show more" counts them', () => {
+    it('renders only the first page of rows (every sound is in the JSON), and "Show more" counts the rest', () => {
         const many = Array.from({length: 7}, (_, i) => ({url: `/${i}.mp3`}));
         const html = renderSounds(many, {pageSize: 5});
-        expect((html.match(/<li [^>]*hidden/g) || []).length).toBe(2);
+        expect(rowsIn(html)).toEqual(['0', '1', '2', '3', '4']);
+        expect(html).not.toMatch(/<li [^>]*hidden/);
+        expect(dataOf(html)).toHaveLength(7);
         expect(html).toContain('Show 2 more');
-        expect(renderSounds(many, {pageSize: 0})).not.toMatch(/<li [^>]*hidden/);
+    });
+
+    it('paging off renders the first chunk of rows; the runtime renders the rest as the list scrolls', () => {
+        const many = Array.from({length: RENDER_CHUNK + 20}, (_, i) => ({url: `/${i}.mp3`}));
+        const html = renderSounds(many, {pageSize: 0});
+        expect(rowsIn(html)).toHaveLength(RENDER_CHUNK);
+        expect(dataOf(html)).toHaveLength(RENDER_CHUNK + 20);
+        expect(html).toContain('data-ws-more hidden');
+    });
+
+    it('renders the rows in the starting order (the first sort offered)', () => {
+        const abc = [{url: '/1.mp3', title: 'C'}, {url: '/2.mp3', title: 'A'}, {url: '/3.mp3', title: 'B'}];
+        expect(rowsIn(renderSounds(abc, {sorts: ['title', 'default'], pageSize: 2}))).toEqual(['1', '2']);
+        expect(rowsIn(renderSounds(abc))).toEqual(['0', '1', '2']);
+    });
+
+    it('defines each icon once per list, in a sprite named by the id prefix; rows use it', () => {
+        const html = renderSounds(sounds, {idPrefix: 'pk'});
+        expect(html.startsWith('<svg class="ws-sprite" data-ws-sprite="pk" width="0" height="0" aria-hidden="true" focusable="false">')).toBe(true);
+        expect(html.match(/<symbol /g)).toHaveLength(6); // play, pause, search, chevron, check, loop (the toggle)
+        expect(html.match(/<path /g)).toHaveLength(6);
+        expect(html).toContain('<symbol id="pk-i-play" viewBox="0 0 24 24">');
+        expect(html).toContain('<svg class="ws-icon ws-icon-play" aria-hidden="true" focusable="false"><use href="#pk-i-play"/></svg>');
+        expect(html.match(/href="#pk-i-pause"/g)).toHaveLength(2);
+        // Only the icons the list uses.
+        expect(renderSounds([{url: '/a.mp3'}], {search: false, filters: [], sorts: [], loopToggle: false})).not.toContain('i-check');
+        expect(renderSounds([{url: '/a.mp3', download: '/a.wav'}])).toContain('id="ws');
+        expect(renderSounds([{url: '/a.mp3', download: '/a.wav'}])).toMatch(/<symbol id="[^"]+-i-download"/);
+    });
+
+    it('a row reads as one sentence, which also describes its play button', () => {
+        const html = renderSounds([{url: '/a.mp3', title: 'Pad', type: 'Keys', bpm: 130, key: 'B minor', duration: 7.4, loop: true}, {url: '/b.mp3', title: 'Plain'}], {idPrefix: 'pk'});
+        const [row, plain] = html.split('<li class="ws-row"').slice(1);
+        expect(row).toContain('aria-describedby="pk-d0"');
+        expect(row).toContain('<span class="ws-cells" aria-hidden="true">');
+        expect(row).toContain('<span class="ws-sr" id="pk-d0">Keys, 130 BPM, key B minor, 0:07, Loop</span>');
+        expect(plain).not.toContain('aria-describedby');
+        expect(plain).not.toMatch(/class="ws-sr" id=/);
+        const nl = renderSounds([{url: '/a.mp3', bpm: 90, key: 'F#'}], {idPrefix: 'pk', columns: ['key', 'bpm'], strings: {rowBpm: '{bpm} slagen', rowKey: 'toonsoort {key}', keyMajor: '{note} groot', noteSharp: '{note}-kruis', listSeparator: '; '}});
+        expect(nl).toContain('>toonsoort F-kruis groot; 90 slagen<');
+    });
+
+    it('no row waveform is a slider in the markup (the runtime makes the current one the slider)', () => {
+        const html = renderSounds(sounds);
+        expect(html).not.toContain('role="slider"');
+        expect(html).toContain('<span class="ws-wave" aria-hidden="true"><canvas class="ws-canvas"></canvas></span>');
     });
 
     it('strip layout has no row waveforms and a visible engine slot', () => {
@@ -190,13 +244,14 @@ describe('loops in the markup', () => {
         expect(html).toMatch(/data-ws-loop-filter="one-shot" aria-pressed="false"><span>One-shots<\/span>/);
     });
 
-    it('marks a loop row (attribute + icon with a text alternative); a one-shot carries nothing', () => {
+    it('marks a loop row (an icon, and "Loop" in its read-out); a one-shot carries nothing', () => {
         const [loop, shot] = rowsOf(html);
-        expect(loop).toContain('data-loop="true"');
         expect(loop).toContain('<span class="ws-title-text">Drum Loop</span>');
-        expect(loop).toMatch(/class="ws-loop-mark"[^>]*>.*<span class="ws-sr">Loop<\/span>/);
-        expect(shot).not.toContain('data-loop');
+        expect(loop).toMatch(/class="ws-loop-mark" title="Loop" aria-hidden="true"><svg/);
+        expect(loop).toMatch(/<span class="ws-sr" id="[^"]+">Loop<\/span>/);
+        expect(dataOf(html)[0].loop).toBe(true);
         expect(shot).not.toContain('ws-loop-mark');
+        expect(dataOf(html)[1].loop).toBeUndefined();
     });
 
     it('no filter for a list without loops', () => {

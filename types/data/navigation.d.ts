@@ -40,17 +40,35 @@ export declare const SEEK_END = 0.999;
  */
 export declare function sliderEdgeTarget(key: string): number | null;
 /**
- * Which of the matching sounds the current page shows, and how many more
- * "Show more" would reveal.
- *
- * @template T
- * @param shown - The sounds that match, in display order.
- * @param limit - How many to show (Infinity for all).
+ * Rows are rendered as they are revealed, never all up front: a page's
+ * worth, or with paging off this many at a time, more as the list
+ * scrolls toward its end. Since 2.2.0.
  */
-export declare function pageWindow<T>(shown: T[], limit: number): {
-    visible: Set<T>;
-    remaining: number;
-};
+export declare const RENDER_CHUNK = 50;
+/**
+ * How many of the matching sounds have rows: the page, or with paging off
+ * the rows rendered so far (`budget`). The server renders the first of
+ * these ({@link firstRender}).
+ *
+ * @param matching - How many sounds match.
+ * @param limit - The page limit (Infinity when paging is off).
+ * @param budget - Rows rendered so far when paging is off.
+ */
+export declare function renderedCount(matching: number, limit: number, budget: number): number;
+/**
+ * How many rows a list starts with: a page, or with paging off
+ * {@link RENDER_CHUNK}.
+ *
+ * @param pageSize - The `pageSize` option (0 = paging off).
+ */
+export declare function firstRender(pageSize: number): number;
+/**
+ * The budget that renders position `pos` with paging off: whole chunks.
+ *
+ * @param budget - Rows rendered so far.
+ * @param pos - The position that must have a row.
+ */
+export declare function budgetToReveal(budget: number, pos: number): number;
 /**
  * The page limit that reveals position `pos` (used when playing past the
  * end of the current page, e.g. by `next()` or auto-advance).

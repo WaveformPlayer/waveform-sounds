@@ -1,9 +1,12 @@
 // The inputs of the server-markup byte-identity test (test/unit/render/golden.test.js).
-// `render-2.0.0.json` holds what the PUBLISHED 2.0.0 `/render` made of each:
-// server-rendered markup is a contract with every page that already carries
-// it, so a change that alters the output for one of these inputs is a
-// breaking change unless it is meant to be (and the fixture is regenerated
-// from the release that made it).
+// `render-2.2.0.json` holds what 2.2.0's `/render` makes of each: server-
+// rendered markup is a contract with every page (and every framework
+// wrapper's hydration) that carries it, so a change that alters the output
+// for one of these inputs must be meant, said in the CHANGELOG under
+// "Changed (markup)", and the fixture regenerated on purpose
+// (`npm run build && node scripts/write-golden.mjs`).
+// `render-2.0.0.json` is what the published 2.0.0 made of the first eleven:
+// markup from before 2.2, which the runtime still adopts (test/runtime).
 
 /** A deterministic PRNG (LCG), so the big pack is the same on every run. */
 function rng(seed) {
@@ -49,6 +52,20 @@ const plain = [
     {url: '/s/crash.mp3', title: 'Crash', type: 'One-shots', download: '/free/crash.wav'},
 ];
 
+const keyed = [
+    {url: '/k/1.mp3', title: 'Pad 1', type: 'Keys', key: 'A#m', bpm: 90, duration: 8, loop: true},
+    {url: '/k/2.mp3', title: 'Pad 2', type: 'Keys', key: 'Bb minor', bpm: 90, duration: 8, loop: true},
+    {url: '/k/3.mp3', title: 'Pad 3', type: 'Keys', key: 'Bbm', duration: 2},
+    {url: '/k/4.mp3', title: 'Lead', type: 'Synth', key: 'C#', duration: 4},
+    {url: '/k/5.mp3', title: 'Lead 2', type: 'Synth', key: 'Db'},
+];
+const hex = (n, seed) => { const r = rng(seed); return Array.from({length: n}, () => Math.round(r() * 255).toString(16).padStart(2, '0')).join(''); };
+const peaky = [
+    {url: '/p/64.mp3', title: 'Sixty-four', peaks: hex(64, 1)},
+    {url: '/p/128.mp3', title: 'One twenty-eight', peaks: hex(128, 2)},
+    {url: '/p/wp1.mp3', title: 'Compact', peaks: 'wp1:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8'},
+];
+
 /** [name, 'sounds' | 'element', sounds, options, className]. */
 export const CASES = [
     ['plain defaults', 'sounds', plain, {}],
@@ -62,4 +79,9 @@ export const CASES = [
     ['empty', 'sounds', [], {}],
     ['element, no options', 'element', small, undefined, undefined],
     ['element, strip + class', 'element', plain, {player: 'strip'}, 'my-list'],
+    // Since 2.2.0.
+    ['enharmonic keys merged', 'sounds', keyed, {idPrefix: 'kk'}],
+    ['enharmonic keys apart', 'element', keyed, {mergeEnharmonicKeys: false, idPrefix: 'kk'}, undefined],
+    ['64, 128 and wp1 peaks', 'sounds', peaky, {}],
+    ['paging off, past one chunk', 'sounds', pack(60, 5), {pageSize: 0}],
 ];

@@ -31,11 +31,13 @@ import {keyEntry} from '../data/keys.js';
 import {drawRowWaveform, resample} from '../dom/draw.js';
 import {engineOptions, engineTrack} from './engine.js';
 import {Menus} from '../dom/menus.js';
-import {limitToReveal, pageWindow, rowTarget, seekTarget, sliderEdgeTarget} from '../data/navigation.js';
+import {budgetToReveal, limitToReveal, RENDER_CHUNK, renderedCount, rowTarget, seekTarget, sliderEdgeTarget} from '../data/navigation.js';
 import {DEFAULT_OPTIONS, mergeOptions, readDataOptions} from './options.js';
 import {resolveRenderOptions} from '../render/options.js';
-import {loopsByDefault, renderSounds} from '../render/markup.js';
-import {indexRows, orderRows, readRows, visibleRows} from '../dom/rows.js';
+import {idBase, loopsByDefault, renderList, renderRow} from '../render/markup.js';
+import type {renderSounds} from '../render/markup.js';
+import {ICON_NAMES, iconSprite} from '../render/icons.js';
+import {indexRows, layoutRows, readRows, readSoundsData, visibleRows} from '../dom/rows.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill} from '../render/strings.js';
 import {bpmExtent, bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.js';
 import {ancestorsOf, forcedColors, pageSurface, resolveCssColor} from '../dom/colors.js';
@@ -46,7 +48,7 @@ import type {decodePeaks, encodePeaks} from '../data/sounds.js';
 import type {EngineTrack} from './engine.js';
 import type {WaveformPlayer} from '@arraypress/waveform-player';
 import type {RenderOptions} from '../render/options.js';
-import type {Sound, SoundInput, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsInstanceEventMap, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
+import type {Sound, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsInstanceEventMap, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 /** The engine `WaveformPlayer`, as far as the list uses it. */
 interface Engine {
@@ -163,8 +165,13 @@ export class WaveformSounds extends EventTarget {
 
     /** @internal */ declare strings: WaveformSoundsStrings;
     /** @internal */ declare render: RenderOptions;
-    /** @internal */ declare rows: HTMLElement[];
+    /** @internal Each sound's row, once it has one (in the list or not). */ declare rows: HTMLElement[];
     /** @internal */ declare limit: number;
+    /** @internal Paging off: how many of the matching sounds have rows so far. */ declare _budget: number;
+    /** @internal Each sound's index. */ declare _index: Map<Sound, number>;
+    /** @internal The list's id prefix (its icons, rows' read-outs). */ declare _iconId: string;
+    /** @internal Sounds that failed to load (their rows are marked, rendered or not). */ declare _failed: Set<number>;
+    /** @internal Watches the last rendered row, to render the next chunk. */ declare _endIo: IntersectionObserver | undefined;
     /** @internal */ declare currentIndex: number | null;
     /** @internal */ declare progress: number;
     /** @internal */ declare loop: boolean;
@@ -184,7 +191,6 @@ export class WaveformSounds extends EventTarget {
     /** @internal */ declare _bpmExtent: {min: number, max: number} | null;
     /** @internal What the sounds offer the controls (built once). */ declare _facets: ReturnType<typeof facets> | undefined;
     /** @internal */ declare _sorts: string[];
-    /** @internal */ declare _lastSort: string | undefined;
     /** @internal */ declare _lastPointer: string | undefined;
     /** @internal Rows drawn at least once. */ declare _drawn: Set<number> | undefined;
     /** @internal Drawn rows whose picture is stale (redrawn when they show). */ declare _dirty: Set<number> | undefined;
@@ -222,6 +228,9 @@ export class WaveformSounds extends EventTarget {
         this.filter = {...NO_FILTER};
         this.sortBy = 'default';
         this.limit = this._pageSize();
+        this._budget = this._firstBudget();
+        this._index = new Map();
+        this._failed = new Set();
         this.currentIndex = null;
         this.playing = false;
         this.progress = 0;
@@ -264,14 +273,18 @@ export class WaveformSounds extends EventTarget {
         if (adopted) {
             // As the server sent it, for destroy({restore: true}).
             this._adoptedHTML = el.innerHTML;
-            (this as Writable<WaveformSounds>).sounds = readRows(adopted);
+            // Every sound from the markup's JSON (2.2+); before 2.2 every
+            // row was in the markup, carrying its sound.
+            (this as Writable<WaveformSounds>).sounds = readSoundsData(el) ?? readRows(adopted);
         } else {
             this._originalHTML = el.innerHTML;
             (this as Writable<WaveformSounds>).sounds = await this._loadSounds();
             if (this.destroyed) return;
-            el.innerHTML = renderSounds(this.sounds as SoundInput[], {...this.render, idPrefix: this.options.idPrefix || el.id || undefined});
+            // The server's markup, less the JSON (the sounds are here).
+            el.innerHTML = renderList(this.sounds, {...this.render, idPrefix: this.options.idPrefix || el.id || undefined}, false);
         }
         if (this.destroyed) return;
+        this._index = new Map(this.sounds.map((sound, i) => [sound, i]));
 
         // Remember which classes WE add, so destroy() takes back exactly
         // those (server-rendered markup already carries them).
@@ -298,7 +311,7 @@ export class WaveformSounds extends EventTarget {
         (this as Writable<WaveformSounds>).filter = {...this.filter, key: this._keyEntry(this.filter.key)};
         // Show any filter/sort set before now (from code or the address).
         this._syncControls();
-        this._apply({resort: this.sortBy !== 'default'});
+        this._apply();
 
         // Build the engine now (no audio loads until a play) when the
         // player is on the page, so anything that hooks players on their
@@ -367,12 +380,51 @@ export class WaveformSounds extends EventTarget {
             chips: [...this.container.querySelectorAll<HTMLElement>('[data-ws-type]')],
             loopFilter: [...this.container.querySelectorAll<HTMLElement>('[data-ws-loop-filter]')],
         };
-        this.rows = indexRows(this.$.list);
+        // The id prefix the rows were drawn with (their icons and
+        // read-outs); markup from before 2.2 has no sprite, so it gets one
+        // for the rows rendered from now on.
+        const sprite = q('[data-ws-sprite]');
+        this._iconId = sprite?.dataset.wsSprite ?? (this.options.idPrefix || this.container.id || idBase(this.sounds));
+        if (!sprite) this.$.list.insertAdjacentHTML('beforebegin', iconSprite(this._iconId, ICON_NAMES));
+        this.rows = [];
         // Roving tabindex: the list is ONE Tab stop (the active row's
         // controls); ↑/↓ move between rows. Set here, not in the markup, so
         // server-rendered HTML from any version gets it.
         this._active = null;
-        for (const row of this.rows) if (row) this._rowStops(row, false);
+        for (const row of indexRows(this.$.list)) if (row) this._adoptRow(row);
+    }
+
+    /**
+     * Take a row (server-rendered, or just rendered) into the list's
+     * keeping: its index, its Tab stops off, the state of its sound (current,
+     * failed), and the observer that draws it.
+     * @internal
+     */
+    _adoptRow(row: HTMLElement): void {
+        const i = Number(row.dataset.wsIndex);
+        this.rows[i] = row;
+        this._rowStops(row, false);
+        const wave = row.querySelector<HTMLElement>('.ws-wave');
+        // Before 2.2 every row's waveform was a slider: only the current one is.
+        if (i === this.currentIndex || this._failed.has(i) || wave?.hasAttribute('role')) this._paintRow(i);
+        if (i === this.currentIndex) this._paintSlider();
+        if (this._io) this._io.observe(row);
+        else this._drawn?.add(i);
+    }
+
+    /**
+     * Rows for these sounds, rendered (in one pass) where they have none.
+     * @returns The rows, in the order given.
+     * @internal
+     */
+    _rowsFor(indices: number[]): HTMLElement[] {
+        const missing = indices.filter((i) => !this.rows[i]);
+        if (missing.length) {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = missing.map((i) => renderRow(this.sounds[i], i, this.render, this._iconId)).join('');
+            for (const row of [...tpl.content.children] as HTMLElement[]) this._adoptRow(row);
+        }
+        return indices.map((i) => this.rows[i]);
     }
 
     /**
@@ -386,7 +438,7 @@ export class WaveformSounds extends EventTarget {
         const dl = row.querySelector<HTMLElement>('.ws-download');
         if (dl) dl.tabIndex = on ? 0 : -1;
         const wave = row.querySelector<HTMLElement>('.ws-wave');
-        if (wave) wave.tabIndex = on && Number(row.dataset.wsIndex) === this.currentIndex ? 0 : -1;
+        if (wave && Number(row.dataset.wsIndex) === this.currentIndex) wave.tabIndex = on ? 0 : -1;
     }
 
     /**
@@ -556,13 +608,35 @@ export class WaveformSounds extends EventTarget {
             return;
         }
 
-        const rows = visibleRows(this.$.list);
-        const target = rowTarget(e.key, rows.indexOf(row), rows.length);
+        // Positions among the sounds the page shows, rows or not: ↓ past
+        // the last row rendered (paging off) renders the next ones.
+        const shown = this._shown ?? [];
+        const target = rowTarget(e.key, shown.indexOf(this.sounds[index]), Math.min(shown.length, this.limit));
         if (target === null) return;
         e.preventDefault();
         if (target === 'search') { this.$.search?.focus(); return; }
-        this._focusRow(rows[target]);
-        if (this.options.arrowAudition && this.playing) this.play(Number(rows[target].dataset.wsIndex));
+        this._focusRow(this._reveal(target));
+        if (this.options.arrowAudition && this.playing) this.play(this._index.get(shown[target]));
+    }
+
+    /**
+     * The row at position `pos` of the matching sounds, revealing it first:
+     * past the page, the page grows to it (as `next()` always did); with
+     * paging off, rows are rendered up to it.
+     * @internal
+     */
+    _reveal(pos: number): HTMLElement | undefined {
+        const sound = this._shown?.[pos];
+        if (!sound) return undefined;
+        const limit = limitToReveal(this.limit, pos);
+        if (limit !== this.limit) {
+            this.limit = limit;
+            this._apply();
+        } else if (this.limit === Infinity && pos >= this._budget) {
+            this._budget = budgetToReveal(this._budget, pos);
+            this._layout();
+        }
+        return this.rows[this._index.get(sound)!];
     }
 
     /**
@@ -683,8 +757,8 @@ export class WaveformSounds extends EventTarget {
         const row = this.rows[index];
         const canvas = row?.querySelector('canvas');
         if (!canvas) return;
-        // Hidden (filtered, or past the page): draw it when it shows again.
-        if (row.hidden) { this._dirty?.add(index); return; }
+        // Out of the list (filtered, or past the page): draw it when it is back.
+        if (!row.isConnected) { this._dirty?.add(index); return; }
         this._dirty?.delete(index);
         const gap = Number(this.options.barGap);
         drawRowWaveform(canvas, this.sounds[index].peaks, index === this.currentIndex ? this.progress : 0, {
@@ -783,8 +857,9 @@ export class WaveformSounds extends EventTarget {
         (this as Writable<WaveformSounds>).filter = {...this.filter, ...patch};
         if (patch.key) this.filter.key = this._keyEntry(patch.key);
         this.limit = this._pageSize();
+        this._budget = this._firstBudget();
         this._syncControls();
-        this._apply({resort: false});
+        this._apply();
     }
 
     /** Reset every filter (the sort stays). */
@@ -797,14 +872,14 @@ export class WaveformSounds extends EventTarget {
         this._sortSet = true;
         (this as Writable<WaveformSounds>).sortBy = SORTS.includes(by) ? by : 'default';
         this.menus?.setValue('sort', this.sortBy);
-        this._apply({resort: true});
+        this._apply();
     }
 
     /** Reveal the next page of results. */
     showMore(): void {
         if (this.limit === Infinity) return;
         this.limit += this.render.pageSize;
-        this._apply({resort: false});
+        this._apply();
     }
 
     /**
@@ -813,6 +888,16 @@ export class WaveformSounds extends EventTarget {
      */
     _pageSize(): number {
         return this.render.pageSize > 0 ? this.render.pageSize : Infinity;
+    }
+
+    /**
+     * Paging off: the rows a list (or a new filter) starts with — a chunk,
+     * more as the list scrolls (see `_watchEnd`); all of them where nothing
+     * can tell it scrolled (no IntersectionObserver).
+     * @internal
+     */
+    _firstBudget(): number {
+        return typeof IntersectionObserver === 'undefined' ? Infinity : RENDER_CHUNK;
     }
 
     /**
@@ -857,27 +942,17 @@ export class WaveformSounds extends EventTarget {
     }
 
     /**
-     * Lay the rows out for the current filter, sort and page: order, hide,
+     * Lay the list out for the current filter, sort and page: its rows,
      * "Show more", the empty state and the count. Then report it.
-     *
-     * @param opts - Reorder the rows even if the sort
-     *   hasn't changed.
      * @internal
      */
-    _apply({resort}: {resort: boolean}): void {
+    _apply(): void {
         const $ = this.$;
         if (!$) return;
-        if (resort || this.sortBy !== this._lastSort) {
-            // Each sound's row by identity: a Map, not indexOf per sound
-            // (quadratic — 1000 sounds was a million comparisons a sort).
-            const index = new Map(this.sounds.map((s, i) => [s, i]));
-            orderRows($.list, sortSounds(this.sounds, this.sortBy).map((s) => this.rows[index.get(s)!]));
-            this._lastSort = this.sortBy;
-        }
         const shown = this._match();
         this._shown = shown;
-        const {visible, remaining} = pageWindow(shown, this.limit);
-        this.sounds.forEach((s, i) => { if (this.rows[i]) this.rows[i].hidden = !visible.has(s); });
+        this._layout();
+        const remaining = shown.length - Math.min(shown.length, this.limit);
         if ($.more) {
             $.more.hidden = remaining <= 0;
             $.more.textContent = fill(this.strings.showMore, {count: Math.min(remaining, this.render.pageSize || remaining)});
@@ -889,22 +964,57 @@ export class WaveformSounds extends EventTarget {
             if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
         }
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
-        // The Tab stop never sits on a hidden row; and if focus was in the
-        // row just filtered away, it follows the stop instead of falling
-        // to <body>.
-        if (!this._active || this._active.hidden) {
-            const lost = !!this._active?.contains(document.activeElement);
-            const first = visibleRows($.list)[0];
-            if (first) {
-                this._rove(first);
-                if (lost) this._focusRowQuietly(first);
-            } else if (this._active) { this._rowStops(this._active, false); this._active = null; }
-        }
         // Nothing played yet: keep the cued sound one the list still shows.
         if (this._cued && !this.playing) this._cueFirst();
         this._queueUrl();
         this._emit('filter', {visible: shown.length, total: this.sounds.length, filter: {...this.filter}, sort: this.sortBy});
         this.options.onFilter?.(shown, this);
+    }
+
+    /**
+     * Put exactly the rows shown in the list, in order: the page (or with
+     * paging off the rows rendered so far) of the matching sounds. Rows are
+     * rendered the first time they are shown; rows that stop being shown
+     * leave the DOM (kept, with their drawing, for when they come back).
+     * @internal
+     */
+    _layout(): void {
+        const $ = this.$, shown = this._shown!;
+        const count = renderedCount(shown.length, this.limit, this._budget);
+        const focused = $.list.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+        const rows = this._rowsFor(shown.slice(0, count).map((sound) => this._index.get(sound)!));
+        layoutRows($.list, rows);
+        // A re-sort moves rows, and a moved element loses focus: give it back.
+        if (focused?.isConnected && document.activeElement !== focused) focused.focus({preventScroll: true});
+        if (!this._io && this._drawn) for (const row of rows) this._drawRow(Number(row.dataset.wsIndex));
+        // The Tab stop never sits on a row that left the list; and if focus
+        // was in it, focus follows the stop instead of falling to <body>.
+        if (!this._active || !this._active.isConnected) {
+            const first = rows[0];
+            if (first) {
+                this._rove(first);
+                if (focused && !focused.isConnected) this._focusRowQuietly(first);
+            } else if (this._active) { this._rowStops(this._active, false); this._active = null; }
+        }
+        // Paging off and more to render: the next chunk when the last row
+        // nears the viewport.
+        this._watchEnd(count < Math.min(shown.length, this.limit) ? rows[rows.length - 1] : null);
+    }
+
+    /**
+     * Render the next chunk of rows once `row` (the last one rendered) comes
+     * within ~1200px of the viewport; nothing to watch for `null`.
+     * @internal
+     */
+    _watchEnd(row: HTMLElement | null | undefined): void {
+        this._endIo?.disconnect();
+        if (!row || typeof IntersectionObserver === 'undefined') return;
+        this._endIo ??= new IntersectionObserver((entries) => {
+            if (this.destroyed || !entries.some((entry) => entry.isIntersecting)) return;
+            this._budget += RENDER_CHUNK;
+            this._layout();
+        }, {rootMargin: '0px 0px 1200px 0px'});
+        this._endIo.observe(row);
     }
 
     /* ── Playback ─────────────────────────────────────────────────────── */
@@ -923,7 +1033,7 @@ export class WaveformSounds extends EventTarget {
             return first ? this.sounds.indexOf(first) : null;
         }
         if (typeof target === 'number') return this.sounds[target] ? target : null;
-        const i = typeof target === 'object' ? this.sounds.indexOf(target) : this.sounds.findIndex((s) => s.id === String(target));
+        const i = typeof target === 'object' ? (this._index.get(target) ?? this.sounds.indexOf(target)) : this.sounds.findIndex((s) => s.id === String(target));
         return i >= 0 ? i : null;
     }
 
@@ -1086,8 +1196,7 @@ export class WaveformSounds extends EventTarget {
         const at = this.currentIndex == null || this._cued ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
         const target = shown[at + dir];
         if (!target) return false;
-        const limit = limitToReveal(this.limit, at + dir);
-        if (limit !== this.limit) { this.limit = limit; this._apply({resort: false}); }
+        if (this.$) this._reveal(at + dir);
         this.play(this.sounds.indexOf(target));
         return true;
     }
@@ -1146,7 +1255,7 @@ export class WaveformSounds extends EventTarget {
      * @internal
      */
     _onEngineLoad(): void {
-        if (this.currentIndex != null) this.rows[this.currentIndex]?.classList.remove('is-error');
+        if (this.currentIndex != null) this._markFailed(this.currentIndex, false);
         if (this._eng()?.audio) this._eng()!.audio!.loop = this._repeats();
         const sound = this.sounds[this.currentIndex!];
         if (sound && !sound.peaks && this._eng()?.waveformData?.length) {
@@ -1203,7 +1312,7 @@ export class WaveformSounds extends EventTarget {
     _onEngineError(err: unknown): void {
         const index = this.currentIndex;
         const sound = index == null ? undefined : this.sounds[index];
-        if (index != null) this.rows[index]?.classList.add('is-error');
+        if (index != null) this._markFailed(index, true);
         this._setPlaying(false);
         // A cued sound (strip, nothing played) wasn't asked for: no announcement.
         if (sound && !this._cued && this.$?.status) this.$.status.textContent = fill(this.strings.playError, {title: sound.title});
@@ -1227,7 +1336,7 @@ export class WaveformSounds extends EventTarget {
         if (on) this._cued = false; // the strip's own button played the cued sound
         const index = this.currentIndex;
         if (index == null) return;
-        if (on) this.rows[index]?.classList.remove('is-error'); // it plays after all
+        if (on) this._markFailed(index, false); // it plays after all
         this._paintRow(index);
         const was = this._announced ?? null;
         if (on) {
@@ -1272,15 +1381,44 @@ export class WaveformSounds extends EventTarget {
             btn.setAttribute('aria-pressed', String(on));
             btn.setAttribute('aria-label', fill(on ? this.strings.pause : this.strings.play, {title: this.sounds[index].title}));
         }
+        row.classList.toggle('is-error', this._failed.has(index));
         const wave = row.querySelector<HTMLElement>('.ws-wave');
-        if (wave) {
-            wave.tabIndex = current && row === this._active ? 0 : -1;
-            if (!current) {
-                wave.setAttribute('aria-valuenow', '0');
-                wave.removeAttribute('aria-valuetext');
-            }
-        }
+        if (wave) this._paintWave(wave, current, row === this._active, this.sounds[index].title);
         this._drawRow(index);
+    }
+
+    /**
+     * A row's waveform: the current sound's is THE seek slider (focusable,
+     * labelled, with a value); every other one is a picture, hidden from
+     * assistive tech and out of the Tab order (a pointer still seeks on it).
+     * So a screen reader meets one slider, not one per row. Since 2.2.0.
+     * @internal
+     */
+    _paintWave(wave: HTMLElement, current: boolean, active: boolean, title: string): void {
+        if (!current) {
+            if (wave.getAttribute('aria-hidden') === 'true' && !wave.hasAttribute('role')) return;
+            for (const name of ['role', 'aria-label', 'aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext', 'tabindex']) wave.removeAttribute(name);
+            wave.setAttribute('aria-hidden', 'true');
+            return;
+        }
+        wave.removeAttribute('aria-hidden');
+        wave.setAttribute('role', 'slider');
+        wave.setAttribute('aria-label', fill(this.strings.seek, {title}));
+        wave.setAttribute('aria-valuemin', '0');
+        wave.setAttribute('aria-valuemax', '100');
+        if (!wave.hasAttribute('aria-valuenow')) wave.setAttribute('aria-valuenow', String(Math.round(this.progress * 100)));
+        wave.tabIndex = active ? 0 : -1;
+    }
+
+    /**
+     * Record that a sound failed (or played after all), on its row if it
+     * has one; a row rendered later picks it up from `_failed`.
+     * @internal
+     */
+    _markFailed(index: number, failed: boolean): void {
+        if (failed) this._failed.add(index);
+        else this._failed.delete(index);
+        this.rows[index]?.classList.toggle('is-error', failed);
     }
 
     /**
@@ -1334,6 +1472,7 @@ export class WaveformSounds extends EventTarget {
         this.destroyed = true;
         this._ctl.abort();
         this._io?.disconnect();
+        this._endIo?.disconnect();
         this._ro?.disconnect();
         this._mo?.disconnect();
         if (this._raf) cancelAnimationFrame(this._raf);
