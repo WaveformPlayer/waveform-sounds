@@ -48,7 +48,25 @@ npx @arraypress/waveform-gen ./public/previews/ --recursive \
 `loop`, `autoAdvance`, `arrowAudition`, `playerOptions`, `strings`, and the
 callbacks `onReady` / `onPlay` / `onPause` / `onEnd` / `onFilter` / `onError`.
 Every option has a `data-*` form (`data-page-size="100"`); `strings` and
-`playerOptions` take JSON. See `index.d.ts` for each one.
+`playerOptions` take JSON. Each one is documented in the type declarations
+(`WaveformSoundsOptions`).
+
+### The engine player (`playerOptions`)
+
+Every sound plays through one `WaveformPlayer`, and `playerOptions` is
+passed to it — its look, `preload`, `volume`, its callbacks (called after
+the list's own). In the `strip` layout it is the docked player, so
+`showVolume` and `showDownload` show there (the download link is the
+sound's `download`, else its audio). A few options are the list's to set:
+
+- `audioMode` is always `'self'`.
+- `loop` and `showLoop` are always off: the Loop toggle (the `loop` option)
+  owns looping, and repeats only the sounds marked as loops.
+- `duration`, `downloadUrl` and `downloadName` are ignored: they describe
+  one track. A sound's own `duration` reaches the player instead, so its
+  length shows before the audio's metadata loads.
+- `lazy` has no effect: the engine is built empty and the list loads each
+  sound into it when it plays (the strip also cues the first one).
 
 Every control can go. No BPM anywhere:
 

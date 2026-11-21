@@ -306,6 +306,8 @@ describe('playback', () => {
         expect(engine.options.audioMode).toBe('self');
         expect(engine.calls.loadTrack[0]).toMatchObject({url: '/s/bass-01.mp3', title: 'Bass Loop 01', artist: 'Bass'});
         expect(engine.calls.loadTrack[0].options.waveform).toHaveLength(3);
+        // The manifest's length goes with the sound (2.0 core: shown before metadata).
+        expect(engine.calls.loadTrack[0].options.duration).toBe(8);
         expect(ws.playing).toBe(true);
         rows()[2].querySelector('.ws-play').click();
         await settle();

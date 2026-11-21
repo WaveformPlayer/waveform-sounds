@@ -144,6 +144,63 @@ describe('against the real WaveformPlayer', () => {
         expect(slot.querySelector('[data-ws-engine-mount]').classList.contains('waveform-player')).toBe(true);
     });
 
+    it('playerOptions loop / showLoop cannot take looping from the list', async () => {
+        // On the 2.0 core `loop` stops `ended` and `showLoop` adds a toggle
+        // that loops whatever is loaded; the engine forces both off.
+        const {el, ws} = await mount({autoAdvance: true, playerOptions: {loop: true, showLoop: true}});
+        expect(ws.engine.options.loop).toBe(false);
+        expect(el.querySelector('.waveform-loop')).toBeNull();
+        ws.play(0);
+        await flush(); metadata(ws); await flush(); await flush();
+        expect(ws.engine.audio.loop).toBe(false);
+        // The sound ends, so autoAdvance moves on.
+        ws.engine.audio.dispatchEvent(new Event('ended'));
+        await flush();
+        expect(ws.engine.audio.src).toContain('/b.mp3');
+        // The list's own Loop still drives the engine.
+        ws.setLoop(true);
+        expect(ws.engine.audio.loop).toBe(true);
+    });
+
+    it("a sound's known duration reaches the engine before the audio's metadata", async () => {
+        const {ws} = await mount({sounds: [{url: '/a.mp3', title: 'A', duration: 8.5, peaks: '2040'}, {url: '/b.mp3', title: 'B', peaks: '8060'}]});
+        ws.play(0);
+        await flush();
+        expect(Number.isFinite(ws.engine.audio.duration)).toBe(false); // no metadata yet
+        expect(ws.engine.getSeekDuration()).toBe(8.5);
+        expect(ws.engine.container.querySelector('.time-total').textContent).toBe('0:08');
+        // The next sound has no known length: the previous one doesn't carry over.
+        ws.play(1);
+        await flush();
+        expect(ws.engine.getSeekDuration()).toBe(0);
+    });
+
+    it("a strip's showDownload link follows the sound: the row's download, else the audio", async () => {
+        const {el, ws} = await mount({player: 'strip', playerOptions: {showDownload: true, downloadUrl: '/ignored.wav'},
+            sounds: [{url: '/a.mp3', title: 'A', download: '/full/a.wav'}, {url: '/b.mp3', title: 'B'}]});
+        const link = () => el.querySelector('[data-ws-engine] .waveform-download');
+        await flush();
+        expect(link().getAttribute('href')).toBe('/full/a.wav'); // the cued first sound
+        ws.play(1);
+        await flush();
+        expect(link().getAttribute('href')).toBe('/b.mp3');
+    });
+
+    it('playerOptions lazy is inert: the engine has no url, and loadTrack loads at once', async () => {
+        const observed = [];
+        const IO = class { observe(t) { observed.push(t); } unobserve() {} disconnect() {} };
+        vi.stubGlobal('IntersectionObserver', IO);
+        try {
+            const {ws} = await mount({playerOptions: {lazy: true}});
+            ws.play(0);
+            await flush();
+            expect(ws.engine.audio.src).toContain('/a.mp3');
+            expect(observed).not.toContain(ws.engine.container);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('destroy() tears the engine down', async () => {
         const {ws} = await mount();
         ws.play(0);

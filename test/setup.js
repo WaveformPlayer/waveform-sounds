@@ -156,6 +156,8 @@ export class MockWaveformPlayer {
 		// The core clears per-track markers/peaks rather than inheriting them.
 		this.options.markers = options.markers || [];
 		this.options.waveform = options.waveform || null;
+		// 2.0: a track's length and download target reset unless this call gives them.
+		for (const key of ['duration', 'downloadUrl', 'downloadName']) if (options[key] == null) this.options[key] = null;
 
 		await this._load(url);
 		if (options.autoplay !== false && !this.destroyed) this.play();

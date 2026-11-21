@@ -7,8 +7,14 @@
  */
 /**
  * The engine player's options. The site's `playerOptions` override the
- * defaults, except two things the list depends on:
+ * defaults, except what the list depends on:
  *   - `audioMode` is always `'self'` (the list owns its audio);
+ *   - `loop` and `showLoop` are always off: the list owns looping (its Loop
+ *     toggle, which repeats only the sounds marked as loops). The player's
+ *     own loop would stop `ended`, so `autoAdvance` and the row state would
+ *     stall, and its toggle would loop one-shots behind the list's back;
+ *   - the per-track options (`duration`, `downloadUrl`, `downloadName`) are
+ *     dropped: each sound's come with it (see {@link engineTrack});
  *   - the six callbacks always reach the list — a site's own callback of
  *     the same name runs as well, after it, with the same arguments.
  *
@@ -33,4 +39,29 @@ export declare function enginePeaks(sound: {
     peaks: number[] | null;
     waveform: string | null;
 }, layout: 'inline' | 'strip'): number[] | string | null;
+/** What `loadTrack()` is given for one sound (see {@link engineTrack}). */
+export interface EngineTrack {
+    waveform: number[] | string | null;
+    autoplay: boolean;
+    duration?: number;
+    downloadUrl?: string;
+}
+/**
+ * The `loadTrack()` options for a sound: its peaks (see {@link enginePeaks}),
+ * its known length — so the player shows the right total, places a seek and
+ * fills the Media Session scrubber before the audio's metadata arrives,
+ * which with `preload: 'none'` is only once it plays — and its download
+ * link, so a `showDownload` engine offers what the row offers.
+ *
+ * @param sound
+ * @param layout
+ * @param autoplay - Start once loaded (false: cue only).
+ * @returns
+ */
+export declare function engineTrack(sound: {
+    peaks: number[] | null;
+    waveform: string | null;
+    duration: number | null;
+    download: string | null;
+}, layout: 'inline' | 'strip', autoplay: boolean): EngineTrack;
 //# sourceMappingURL=engine.d.ts.map

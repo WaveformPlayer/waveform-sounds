@@ -10,9 +10,23 @@
 const CALLBACKS = ['onLoad', 'onPlay', 'onPause', 'onEnd', 'onTimeUpdate', 'onError'];
 
 /**
+ * Player options that describe ONE track. The engine plays every sound in
+ * the list, so a site value would be wrong for all but one of them; the
+ * list passes each sound's own to `loadTrack()` instead (and the core resets
+ * them on every `loadTrack()` that doesn't).
+ */
+const PER_TRACK = ['duration', 'downloadUrl', 'downloadName'];
+
+/**
  * The engine player's options. The site's `playerOptions` override the
- * defaults, except two things the list depends on:
+ * defaults, except what the list depends on:
  *   - `audioMode` is always `'self'` (the list owns its audio);
+ *   - `loop` and `showLoop` are always off: the list owns looping (its Loop
+ *     toggle, which repeats only the sounds marked as loops). The player's
+ *     own loop would stop `ended`, so `autoAdvance` and the row state would
+ *     stall, and its toggle would loop one-shots behind the list's back;
+ *   - the per-track options (`duration`, `downloadUrl`, `downloadName`) are
+ *     dropped: each sound's come with it (see {@link engineTrack});
  *   - the six callbacks always reach the list — a site's own callback of
  *     the same name runs as well, after it, with the same arguments.
  *
@@ -32,7 +46,10 @@ export function engineOptions(user: Record<string, any> | null | undefined, layo
         singlePlay: true,
         ...site,
         audioMode: 'self',
+        loop: false,
+        showLoop: false,
     };
+    for (const name of PER_TRACK) delete options[name];
     for (const name of CALLBACKS) {
         options[name] = (...args: any[]) => {
             handlers[name]?.(...args);
@@ -54,4 +71,31 @@ export function engineOptions(user: Record<string, any> | null | undefined, layo
  */
 export function enginePeaks(sound: {peaks: number[]|null, waveform: string|null}, layout: 'inline' | 'strip'): number[] | string | null {
     return (layout === 'strip' && sound.waveform) || sound.peaks || null;
+}
+
+/** What `loadTrack()` is given for one sound (see {@link engineTrack}). */
+export interface EngineTrack {
+    waveform: number[] | string | null;
+    autoplay: boolean;
+    duration?: number;
+    downloadUrl?: string;
+}
+
+/**
+ * The `loadTrack()` options for a sound: its peaks (see {@link enginePeaks}),
+ * its known length — so the player shows the right total, places a seek and
+ * fills the Media Session scrubber before the audio's metadata arrives,
+ * which with `preload: 'none'` is only once it plays — and its download
+ * link, so a `showDownload` engine offers what the row offers.
+ *
+ * @param sound
+ * @param layout
+ * @param autoplay - Start once loaded (false: cue only).
+ * @returns 
+ */
+export function engineTrack(sound: {peaks: number[]|null, waveform: string|null, duration: number|null, download: string|null}, layout: 'inline' | 'strip', autoplay: boolean): EngineTrack {
+    const track: EngineTrack = {waveform: enginePeaks(sound, layout), autoplay};
+    if (sound.duration != null && sound.duration > 0) track.duration = sound.duration;
+    if (sound.download) track.downloadUrl = sound.download;
+    return track;
 }

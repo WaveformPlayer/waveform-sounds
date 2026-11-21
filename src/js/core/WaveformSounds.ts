@@ -28,7 +28,7 @@
 
 import {availableSorts, facets, matches, normalizeSounds, parseManifest, sortSounds, SORTS} from '../data/sounds.js';
 import {drawRowWaveform, resample} from '../dom/draw.js';
-import {engineOptions, enginePeaks} from './engine.js';
+import {engineOptions, engineTrack} from './engine.js';
 import {Menus} from '../dom/menus.js';
 import {limitToReveal, pageWindow, rowTarget, seekTarget} from '../data/navigation.js';
 import {DEFAULT_OPTIONS, mergeOptions, readDataOptions} from './options.js';
@@ -41,6 +41,7 @@ import {pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 import type {decodePeaks, encodePeaks, formatDuration, normalizeKey} from '../data/sounds.js';
+import type {EngineTrack} from './engine.js';
 import type {RenderOptions} from '../render/options.js';
 import type {Sound, SoundInput, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
@@ -51,7 +52,7 @@ interface Engine {
     play(): unknown;
     pause(): unknown;
     seekTo(seconds: number): unknown;
-    loadTrack(url: string, title: string, artist: string | null, options: {waveform: number[] | string | null, autoplay: boolean}): unknown;
+    loadTrack(url: string, title: string, artist: string | null, options: EngineTrack): unknown;
     destroy(): unknown;
 }
 
@@ -802,7 +803,7 @@ export class WaveformSounds {
         if (previous != null) this._paintRow(previous);
         this._paintRow(index);
         const sound = this.sounds[index];
-        engine.loadTrack(sound.url, sound.title, sound.type || null, {waveform: enginePeaks(sound, this.render.player), autoplay: true});
+        engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true));
     }
 
     /**
@@ -822,7 +823,7 @@ export class WaveformSounds {
         this.currentIndex = index;
         this.progress = 0;
         this._cued = true;
-        engine.loadTrack(first.url, first.title, first.type || null, {waveform: enginePeaks(first, 'strip'), autoplay: false});
+        engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, 'strip', false));
     }
 
     /** Pause the current sound. */

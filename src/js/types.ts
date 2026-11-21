@@ -207,7 +207,10 @@ export interface WaveformSoundsOptions {
     arrowAudition?: boolean;
     /** Options for the engine `WaveformPlayer` (colours, height, … — and its
      *  callbacks, which are called alongside the list's own). `audioMode` is
-     *  always `'self'`. As markup: `data-player-options` (JSON). */
+     *  always `'self'`; `loop` and `showLoop` are always off (the list's Loop
+     *  toggle owns looping); `duration`, `downloadUrl` and `downloadName` are
+     *  ignored (each sound brings its own). As markup: `data-player-options`
+     *  (JSON). */
     playerOptions?: Record<string, unknown> | null;
     /** The `WaveformPlayer` class, for ESM setups without the global. */
     playerClass?: unknown;

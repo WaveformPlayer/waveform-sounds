@@ -317,6 +317,7 @@
 
   // src/js/core/engine.ts
   var CALLBACKS = ["onLoad", "onPlay", "onPause", "onEnd", "onTimeUpdate", "onError"];
+  var PER_TRACK = ["duration", "downloadUrl", "downloadName"];
   function engineOptions(user, layout, handlers) {
     const site = user || {};
     const strip = layout === "strip";
@@ -326,8 +327,11 @@
       preload: "metadata",
       singlePlay: true,
       ...site,
-      audioMode: "self"
+      audioMode: "self",
+      loop: false,
+      showLoop: false
     };
+    for (const name of PER_TRACK) delete options[name];
     for (const name of CALLBACKS) {
       options[name] = (...args) => {
         handlers[name]?.(...args);
@@ -338,6 +342,12 @@
   }
   function enginePeaks(sound, layout) {
     return layout === "strip" && sound.waveform || sound.peaks || null;
+  }
+  function engineTrack(sound, layout, autoplay) {
+    const track = { waveform: enginePeaks(sound, layout), autoplay };
+    if (sound.duration != null && sound.duration > 0) track.duration = sound.duration;
+    if (sound.download) track.downloadUrl = sound.download;
+    return track;
   }
 
   // src/js/dom/menus.ts
@@ -1835,7 +1845,7 @@
       if (previous != null) this._paintRow(previous);
       this._paintRow(index);
       const sound = this.sounds[index];
-      engine.loadTrack(sound.url, sound.title, sound.type || null, { waveform: enginePeaks(sound, this.render.player), autoplay: true });
+      engine.loadTrack(sound.url, sound.title, sound.type || null, engineTrack(sound, this.render.player, true));
     }
     /**
      * Strip layout: load the first sound the list shows into the docked
@@ -1854,7 +1864,7 @@
       this.currentIndex = index;
       this.progress = 0;
       this._cued = true;
-      engine.loadTrack(first.url, first.title, first.type || null, { waveform: enginePeaks(first, "strip"), autoplay: false });
+      engine.loadTrack(first.url, first.title, first.type || null, engineTrack(first, "strip", false));
     }
     /** Pause the current sound. */
     pause() {
