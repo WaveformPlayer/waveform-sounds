@@ -132,6 +132,11 @@ export class WaveformSounds extends EventTarget {
         formatDuration: typeof formatDuration;
         renderSounds: typeof renderSounds;
     };
+    /** Register the `<waveform-sounds>` element (default tag name
+     *  `waveform-sounds`). The default entry does this on import; this
+     *  reaches it from a `<script>` page that opted out of auto-init.
+     *  Attached in `entry.ts`. Since 2.1.0. */
+    declare static defineElement: (name?: string) => CustomElementConstructor | undefined;
     /** Every option with its default (attached in `entry.ts`). */
     declare static DEFAULT_OPTIONS: WaveformSoundsOptions;
     /** The English UI strings (attached in `entry.ts`). */
@@ -169,6 +174,7 @@ export class WaveformSounds extends EventTarget {
     /** @internal */ declare colors: {wave: string, progress: string} | undefined;
     /** @internal */ declare _ctl: AbortController;
     /** @internal */ declare _originalHTML: string | null;
+    /** @internal Adopted server markup as it arrived (destroy({restore})). */ declare _adoptedHTML: string | undefined;
     /** @internal */ declare _pendingSeek: number | null;
     /** @internal */ declare _raf: number;
     /** @internal */ declare _addedClasses: string[] | undefined;
@@ -202,7 +208,9 @@ export class WaveformSounds extends EventTarget {
         if (!el) throw new Error(`${LOG} Container not found: ${container}`);
         this.container = el;
         // Precedence, as across the family: data-* > constructor > default.
-        this.options = mergeOptions(DEFAULT_OPTIONS, options, readDataOptions(el)) as Required<WaveformSoundsOptions>;
+        // A <waveform-sounds> element reads its plain attributes too.
+        const data = (el as {_wsOptions?: () => Record<string, any>})._wsOptions?.() ?? readDataOptions(el);
+        this.options = mergeOptions(DEFAULT_OPTIONS, options, data) as Required<WaveformSoundsOptions>;
         this.options.waveformStyle = this.options.waveformStyle === 'bars' ? 'bars' : 'mirror';
         this.strings = {...DEFAULT_STRINGS, ...(this.options.strings || {})};
         this.render = {...resolveRenderOptions(this.options), strings: this.strings};
@@ -252,6 +260,8 @@ export class WaveformSounds extends EventTarget {
         const el = this.container;
         const adopted = el.querySelector<HTMLElement>('[data-ws-list]');
         if (adopted) {
+            // As the server sent it, for destroy({restore: true}).
+            this._adoptedHTML = el.innerHTML;
             (this as Writable<WaveformSounds>).sounds = readRows(adopted);
         } else {
             this._originalHTML = el.innerHTML;
@@ -1293,10 +1303,15 @@ export class WaveformSounds extends EventTarget {
      * Tear down: listeners, observers, timers and the engine. Markup this
      * instance rendered is restored to what the container held before.
      * ADOPTED (server-rendered) markup is left as it is now — rows may be
-     * re-sorted, hidden or marked current — so to start again, re-render it
-     * rather than constructing a new instance over it.
+     * re-sorted, hidden or marked current — unless `restore` is set: then it
+     * is put back exactly as the server sent it, ready for a new instance
+     * (what a framework re-mounting the same markup wants).
+     *
+     * @param options
+     * @param options.restore - Put adopted server markup back as it was.
+     *   Default false. Since 2.1.0.
      */
-    destroy(): void {
+    destroy(options: {restore?: boolean} = {}): void {
         if (this.destroyed) return;
         this.destroyed = true;
         this._ctl.abort();
@@ -1309,6 +1324,7 @@ export class WaveformSounds extends EventTarget {
         (this as Writable<WaveformSounds>).engine = null;
         this.$?.engine?.querySelector(':scope > [data-ws-engine-mount]')?.remove();
         if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
+        else if (options.restore && this._adoptedHTML != null) this.container.innerHTML = this._adoptedHTML;
         if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
         if (this._autoSurface) this.container.style.removeProperty('--ws-surface');
         delete this.container.dataset.wsInitialized;

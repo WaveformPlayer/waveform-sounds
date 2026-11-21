@@ -15,12 +15,21 @@
  * canvas can't use CSS, so the runtime resolves them, and re-reads them
  * when the page theme flips).
  */
+/* <waveform-sounds>: a block, like the <div data-waveform-sounds> form (a
+ * custom element is inline by default), and styled as one from the first
+ * paint: the container rules below name the tag as well as the class, so
+ * server-rendered markup inside it doesn't shift when it upgrades. Before
+ * the script defines it, an EMPTY element (a manifest still to load) holds
+ * --ws-element-height, if you set one. */
+waveform-sounds { display: block; }
+waveform-sounds:not(:defined):empty { min-height: var(--ws-element-height, 0); }
+
 /* THE ONE RULE for the inverted states: an element whose background is
  * `var(--ws-accent)` never sets its own `color` — its CHILDREN take the
  * ink. `--ws-accent` defaults to `currentColor`, which resolves where it's
  * used (even registered with @property: Chrome keeps the keyword), so a
  * button with `color: ink; background: currentColor` paints ink on ink. */
-.waveform-sounds {
+:is(.waveform-sounds, waveform-sounds) {
     --ws-accent: currentColor;
     /* The ink on an inverted fill: the page surface (set by you, or
      * measured by the runtime), else the INVERSE of the text colour — right
@@ -56,14 +65,14 @@
  * color-scheme), so a pressed control is a TINT with text-colour ink
  * instead of an inversion: readable on any page. */
 @supports (not (color: rgb(from currentColor r g b))) or ((-moz-appearance: none) and (not (letter-spacing: 1%))) {
-    .waveform-sounds { --ws-on-accent: var(--ws-surface, Canvas); }
-    .waveform-sounds:where(:not([data-ws-initialized])) {
+    :is(.waveform-sounds, waveform-sounds) { --ws-on-accent: var(--ws-surface, Canvas); }
+    :is(.waveform-sounds, waveform-sounds):where(:not([data-ws-initialized])) {
         --ws-accent-fill: color-mix(in srgb, currentColor 22%, transparent);
         --ws-on-accent: currentColor;
     }
 }
-.waveform-sounds *, .waveform-sounds *::before, .waveform-sounds *::after { box-sizing: border-box; }
-.waveform-sounds [hidden] { display: none !important; }
+:is(.waveform-sounds, waveform-sounds) *, :is(.waveform-sounds, waveform-sounds) *::before, :is(.waveform-sounds, waveform-sounds) *::after { box-sizing: border-box; }
+:is(.waveform-sounds, waveform-sounds) [hidden] { display: none !important; }
 
 .ws-sr {
     position: absolute !important;

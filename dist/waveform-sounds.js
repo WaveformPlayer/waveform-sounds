@@ -1344,7 +1344,8 @@
       const el = typeof container === "string" ? document.querySelector(container) : container;
       if (!el) throw new Error(`${LOG} Container not found: ${container}`);
       this.container = el;
-      this.options = mergeOptions(DEFAULT_OPTIONS, options, readDataOptions(el));
+      const data = el._wsOptions?.() ?? readDataOptions(el);
+      this.options = mergeOptions(DEFAULT_OPTIONS, options, data);
       this.options.waveformStyle = this.options.waveformStyle === "bars" ? "bars" : "mirror";
       this.strings = { ...DEFAULT_STRINGS, ...this.options.strings || {} };
       this.render = { ...resolveRenderOptions(this.options), strings: this.strings };
@@ -1384,6 +1385,7 @@
       const el = this.container;
       const adopted = el.querySelector("[data-ws-list]");
       if (adopted) {
+        this._adoptedHTML = el.innerHTML;
         this.sounds = readRows(adopted);
       } else {
         this._originalHTML = el.innerHTML;
@@ -2337,10 +2339,15 @@
      * Tear down: listeners, observers, timers and the engine. Markup this
      * instance rendered is restored to what the container held before.
      * ADOPTED (server-rendered) markup is left as it is now — rows may be
-     * re-sorted, hidden or marked current — so to start again, re-render it
-     * rather than constructing a new instance over it.
+     * re-sorted, hidden or marked current — unless `restore` is set: then it
+     * is put back exactly as the server sent it, ready for a new instance
+     * (what a framework re-mounting the same markup wants).
+     *
+     * @param options
+     * @param options.restore - Put adopted server markup back as it was.
+     *   Default false. Since 2.1.0.
      */
-    destroy() {
+    destroy(options = {}) {
       if (this.destroyed) return;
       this.destroyed = true;
       this._ctl.abort();
@@ -2356,6 +2363,7 @@
       this.engine = null;
       this.$?.engine?.querySelector(":scope > [data-ws-engine-mount]")?.remove();
       if (this._originalHTML != null) this.container.innerHTML = this._originalHTML;
+      else if (options.restore && this._adoptedHTML != null) this.container.innerHTML = this._adoptedHTML;
       if (this._addedClasses?.length) this.container.classList.remove(...this._addedClasses);
       if (this._autoSurface) this.container.style.removeProperty("--ws-surface");
       delete this.container.dataset.wsInitialized;
@@ -2397,16 +2405,151 @@
     }
   };
 
+  // src/js/core/element.ts
+  var ELEMENT_OPTION_KEYS = [
+    "player",
+    "manifest",
+    "search",
+    "filters",
+    "sorts",
+    "showCount",
+    "menuSearch",
+    "idPrefix",
+    "urlState",
+    "loopToggle",
+    "pageSize",
+    "maxTypeChips",
+    "columns",
+    "waveformStyle",
+    "waveformColor",
+    "progressColor",
+    "barWidth",
+    "barGap",
+    "loop",
+    "autoAdvance",
+    "arrowAudition",
+    "strings",
+    "playerOptions"
+  ];
+  var kebab = (key) => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+  function readElementOptions(el) {
+    const dataset = {};
+    for (const key of ELEMENT_OPTION_KEYS) {
+      const name = kebab(key);
+      const value = el.getAttribute(name) ?? el.getAttribute(`data-${name}`);
+      if (value != null) dataset[key] = value;
+    }
+    return readDataOptions({ dataset });
+  }
+  var Base = typeof HTMLElement === "undefined" ? class {
+  } : HTMLElement;
+  var WaveformSoundsElement = class extends Base {
+    /** Every option attribute, plain and `data-` prefixed. */
+    static get observedAttributes() {
+      return ELEMENT_OPTION_KEYS.flatMap((key) => [kebab(key), `data-${kebab(key)}`]);
+    }
+    /** Build the list (or keep it, after a move). */
+    connectedCallback() {
+      if (this._leaving !== void 0) {
+        clearTimeout(this._leaving);
+        this._leaving = void 0;
+        return;
+      }
+      if (!this.sounds) this._build();
+    }
+    /** Destroy the list, unless the element comes straight back (a move). */
+    disconnectedCallback() {
+      clearTimeout(this._leaving);
+      this._leaving = setTimeout(() => {
+        this._leaving = void 0;
+        if (!this.isConnected) this._teardown();
+      }, 0);
+    }
+    /**
+     * An option attribute changed: rebuild once the task's changes are in.
+     *
+     * @param name
+     * @param previous
+     * @param value
+     */
+    attributeChangedCallback(name, previous, value) {
+      if (!this.sounds || previous === value) return;
+      const kind = name.replace(/^data-/, "") === "manifest" ? "manifest" : "rebuild";
+      if (this._pending) {
+        if (kind === "manifest") this._pending = kind;
+        return;
+      }
+      this._pending = kind;
+      queueMicrotask(() => {
+        const pending = this._pending;
+        this._pending = void 0;
+        if (this.sounds) this._rebuild(pending === "manifest");
+      });
+    }
+    /**
+     * The options the list reads off this element (`WaveformSounds` calls it
+     * in place of reading `data-*` alone).
+     * @internal
+     */
+    _wsOptions() {
+      return readElementOptions(this);
+    }
+    /**
+     * Build the list into the element.
+     * @internal
+     */
+    _build(options = {}) {
+      WaveformSounds.getInstance(this)?.destroy({ restore: true });
+      try {
+        this.sounds = new WaveformSounds(this, options);
+      } catch (error) {
+        this.sounds = null;
+        console.error(`${LOG} Failed to initialise:`, error, this);
+      }
+    }
+    /**
+     * Destroy the list, putting server-rendered markup back as it came.
+     * @internal
+     */
+    _teardown() {
+      this.sounds?.destroy({ restore: true });
+      this.sounds = null;
+    }
+    /**
+     * Rebuild for new options: re-rendered from the sounds the list holds
+     * (the markup must follow the new options), or fetched afresh when the
+     * manifest changed.
+     * @internal
+     */
+    _rebuild(refetch) {
+      const sounds = refetch || !this.sounds.$ ? void 0 : this.sounds.sounds.slice();
+      this._teardown();
+      this.innerHTML = "";
+      this._build(sounds ? { sounds } : {});
+    }
+  };
+  function defineWaveformSoundsElement(name = "waveform-sounds") {
+    if (typeof customElements === "undefined") return void 0;
+    const existing = customElements.get(name);
+    if (existing) return existing;
+    const element = class extends WaveformSoundsElement {
+    };
+    customElements.define(name, element);
+    return element;
+  }
+
   // src/js/entry.ts
   WaveformSounds.utils = { encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds };
   WaveformSounds.DEFAULT_OPTIONS = DEFAULT_OPTIONS;
   WaveformSounds.DEFAULT_STRINGS = DEFAULT_STRINGS;
+  WaveformSounds.defineElement = defineWaveformSoundsElement;
   if (typeof window !== "undefined") window.WaveformSounds = WaveformSounds;
   var entry_default = WaveformSounds;
 
   // src/js/index.ts
   var index_default = entry_default;
   if (typeof document !== "undefined" && document.documentElement?.dataset?.waveformAutoinit !== "false") {
+    defineWaveformSoundsElement();
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", () => entry_default.init(), { once: true });
     } else {
@@ -2418,8 +2561,8 @@
  * @arraypress/waveform-sounds
  * A searchable, filterable list of sounds for WaveformPlayer.
  *
- * Importing this entry initialises every `[data-waveform-sounds]` element
- * once the DOM is ready. Opt out page-wide with
+ * Importing this entry registers `<waveform-sounds>` and initialises every
+ * `[data-waveform-sounds]` element once the DOM is ready. Opt out page-wide with
  * `<html data-waveform-autoinit="false">` (the family's switch), or import
  * `@arraypress/waveform-sounds/no-autoinit`.
  *

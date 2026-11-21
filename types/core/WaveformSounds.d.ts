@@ -65,6 +65,11 @@ export declare class WaveformSounds extends EventTarget {
         formatDuration: typeof formatDuration;
         renderSounds: typeof renderSounds;
     };
+    /** Register the `<waveform-sounds>` element (default tag name
+     *  `waveform-sounds`). The default entry does this on import; this
+     *  reaches it from a `<script>` page that opted out of auto-init.
+     *  Attached in `entry.ts`. Since 2.1.0. */
+    static defineElement: (name?: string) => CustomElementConstructor | undefined;
     /** Every option with its default (attached in `entry.ts`). */
     static DEFAULT_OPTIONS: WaveformSoundsOptions;
     /** The English UI strings (attached in `entry.ts`). */
@@ -140,10 +145,17 @@ export declare class WaveformSounds extends EventTarget {
      * Tear down: listeners, observers, timers and the engine. Markup this
      * instance rendered is restored to what the container held before.
      * ADOPTED (server-rendered) markup is left as it is now — rows may be
-     * re-sorted, hidden or marked current — so to start again, re-render it
-     * rather than constructing a new instance over it.
+     * re-sorted, hidden or marked current — unless `restore` is set: then it
+     * is put back exactly as the server sent it, ready for a new instance
+     * (what a framework re-mounting the same markup wants).
+     *
+     * @param options
+     * @param options.restore - Put adopted server markup back as it was.
+     *   Default false. Since 2.1.0.
      */
-    destroy(): void;
+    destroy(options?: {
+        restore?: boolean;
+    }): void;
     /**
      * Initialise every `[data-waveform-sounds]` under `root` that isn't yet.
      *

@@ -1,10 +1,12 @@
 /**
  * @arraypress/waveform-sounds — public surface, without the import-time
- * auto-init scan (`index.js` adds that). Anything new belongs here.
+ * side effects: the auto-init scan and registering `<waveform-sounds>`
+ * (`index.js` adds those). Anything new belongs here.
  *
  * @module entry
  */
 import {WaveformSounds, DEFAULT_OPTIONS} from './core/WaveformSounds.js';
+import {WaveformSoundsElement, defineWaveformSoundsElement} from './core/element.js';
 import {
     encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration,
 } from './data/sounds.js';
@@ -24,6 +26,10 @@ declare global {
 WaveformSounds.utils = {encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds};
 WaveformSounds.DEFAULT_OPTIONS = DEFAULT_OPTIONS;
 WaveformSounds.DEFAULT_STRINGS = DEFAULT_STRINGS;
+// The element definer as a static too, so a CDN page that opted out of
+// auto-init (no ES module import to reach the named export) can register
+// the tag itself: `WaveformSounds.defineElement()`. Like the core's.
+WaveformSounds.defineElement = defineWaveformSoundsElement;
 
 // CDN / <script> usage: a global, like the rest of the family.
 if (typeof window !== 'undefined') window.WaveformSounds = WaveformSounds;
@@ -33,6 +39,7 @@ export {
     WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS,
     encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration,
     renderSounds, renderSoundsElement, RENDER_OPTION_KEYS, pickRenderOptions,
+    WaveformSoundsElement, defineWaveformSoundsElement,
 };
 
 // The public types (sounds, options, filter, events), for `import type { ... }`.

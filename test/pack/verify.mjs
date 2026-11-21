@@ -12,7 +12,9 @@
  *   4. the types resolve for all three entries under moduleResolution
  *      bundler and nodenext;
  *   5. the script-tag build, after the core's, adopts server-rendered markup
- *      in jsdom and builds its one engine player.
+ *      in jsdom and builds its one engine player — in a [data-waveform-sounds]
+ *      div and in a <waveform-sounds> element (registered on load, or by
+ *      WaveformSounds.defineElement() on a page that opted out).
  *
  *   npm run test:pack        (exit 1 if any check fails)
  */
@@ -96,7 +98,11 @@ document.addEventListener('waveformsounds:filter', (e) => e.detail.visible.toFix
 window.addEventListener('waveformsounds:ready', (e) => e.detail.sounds.toFixed());
 const ws = new WaveformSounds('#x');
 ws.addEventListener('play', (e: Event) => e.type);
-export const engine: WaveformPlayer | null = ws.engine;`);
+export const engine: WaveformPlayer | null = ws.engine;
+const tag = document.createElement('waveform-sounds');
+export const inst: WaveformSounds | null = tag.sounds;
+export const defined: CustomElementConstructor | undefined = WaveformSounds.defineElement('my-sounds');
+ws.destroy({restore: true});`);
     for (const [mod, res] of [['esnext', 'bundler'], ['nodenext', 'nodenext']]) {
         const cfg = {compilerOptions: {strict: true, noEmit: true, skipLibCheck: false, lib: ['ES2022', 'DOM'], module: mod, moduleResolution: res, types: []}, files: ['probe.ts']};
         fs.writeFileSync(path.join(consumer, `tsconfig.${res}.json`), JSON.stringify(cfg));
@@ -124,6 +130,32 @@ export const engine: WaveformPlayer | null = ws.engine;`);
         await ws?.ready;
         const ok = !!ws && ws.sounds.length === 2 && ws.engine instanceof window.WaveformPlayer && !ws.engine.options.loop;
         check(`${file}: strict, adopts the markup, builds one engine`, strict && ok, `strict=${strict}, instance=${!!ws}, sounds=${ws?.sounds.length}, engine=${ws?.engine?.constructor?.name}`);
+        window.close();
+    }
+
+    // <waveform-sounds> from a CDN <script>: registered by the bundle (and,
+    // on a page that opted out of auto-init, by WaveformSounds.defineElement()),
+    // adopting the server markup inside it.
+    for (const [file, optOut] of [['waveform-sounds.min.js', false], ['waveform-sounds.min.js', true]]) {
+        const dom = new JSDOM(`<!doctype html><html${optOut ? ' data-waveform-autoinit="false"' : ''}><body><waveform-sounds player="strip">${markup}</waveform-sounds></body></html>`, {runScripts: 'dangerously', pretendToBeVisual: true});
+        const {window} = dom;
+        window.matchMedia = () => ({matches: false, addEventListener() {}, removeEventListener() {}});
+        window.HTMLCanvasElement.prototype.getContext = () => null;
+        window.HTMLMediaElement.prototype.load = () => {};
+        for (const src of [path.join(mods, 'waveform-player', 'dist', 'waveform-player.min.js'), path.join(mods, 'waveform-sounds', 'dist', file)]) {
+            const s = window.document.createElement('script');
+            s.textContent = fs.readFileSync(src, 'utf8');
+            window.document.body.appendChild(s);
+        }
+        const before = !!window.customElements.get('waveform-sounds');
+        if (optOut) window.WaveformSounds.defineElement();
+        const el = window.document.querySelector('waveform-sounds');
+        await el.sounds?.ready;
+        const ok = !!el.sounds && el.sounds.sounds.length === 2 && el.sounds.engine instanceof window.WaveformPlayer && el.querySelector('[data-ws-list]') !== null;
+        check(optOut
+            ? `${file}: an opted-out page registers <waveform-sounds> with WaveformSounds.defineElement(), and it initialises`
+            : `${file}: registers <waveform-sounds>, which adopts its server markup`, ok && before === !optOut,
+        `registered on load=${before}, instance=${!!el.sounds}, sounds=${el.sounds?.sounds.length}, engine=${el.sounds?.engine?.constructor?.name}`);
         window.close();
     }
 } finally {

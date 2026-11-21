@@ -1,10 +1,12 @@
 /**
  * @arraypress/waveform-sounds — public surface, without the import-time
- * auto-init scan (`index.js` adds that). Anything new belongs here.
+ * side effects: the auto-init scan and registering `<waveform-sounds>`
+ * (`index.js` adds those). Anything new belongs here.
  *
  * @module entry
  */
 import { WaveformSounds, DEFAULT_OPTIONS } from './core/WaveformSounds.js';
+import { WaveformSoundsElement, defineWaveformSoundsElement } from './core/element.js';
 import { encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration } from './data/sounds.js';
 import { renderSounds, renderSoundsElement, DEFAULT_STRINGS, RENDER_OPTION_KEYS, pickRenderOptions } from './render/markup.js';
 import type { WaveformSoundsEventMap } from './types.js';
@@ -21,6 +23,6 @@ declare global {
     }
 }
 export default WaveformSounds;
-export { WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS, encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds, renderSoundsElement, RENDER_OPTION_KEYS, pickRenderOptions, };
+export { WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS, encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds, renderSoundsElement, RENDER_OPTION_KEYS, pickRenderOptions, WaveformSoundsElement, defineWaveformSoundsElement, };
 export type { SoundInput, Sound, SoundsManifest, SoundsFilter, SoundsLoopFilter, SoundsSort, SoundsLayout, SoundsFilterControl, SoundsColumn, WaveformSoundsStrings, WaveformSoundsOptions, WaveformSoundsEventMap, WaveformSoundsInstanceEventMap, } from './types.js';
 //# sourceMappingURL=entry.d.ts.map
