@@ -28,6 +28,17 @@ export declare function rowTarget(key: string, at: number, count: number): numbe
  * @returns The new position, or null for any other key.
  */
 export declare function seekTarget(progress: number, key: string): number | null;
+/** Where End seeks on a slider: just short of the end, so it can't end
+ *  the sound (and with it auto-advance) by accident. */
+export declare const SEEK_END = 0.999;
+/**
+ * The position Home / End seek to on a row's seek slider (the ARIA slider
+ * pattern: they go to the minimum / maximum, not to the first / last row).
+ *
+ * @param key - `KeyboardEvent.key`.
+ * @returns 0 for Home, {@link SEEK_END} for End, else null.
+ */
+export declare function sliderEdgeTarget(key: string): number | null;
 /**
  * Which of the matching sounds the current page shows, and how many more
  * "Show more" would reveal.

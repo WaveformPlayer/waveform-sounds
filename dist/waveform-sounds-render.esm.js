@@ -251,6 +251,7 @@ var DEFAULT_STRINGS = {
   play: "Play {title}",
   pause: "Pause {title}",
   seek: "Seek {title}",
+  seekValue: "{time} of {duration}",
   download: "Download {title}",
   count: "{count} sounds",
   countOne: "1 sound",

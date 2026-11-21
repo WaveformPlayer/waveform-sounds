@@ -121,6 +121,9 @@ export interface WaveformSoundsStrings {
     play: string;
     pause: string;
     seek: string;
+    /** The playing row's seek slider, read out: `{time}`, `{duration}`
+     *  ("0:12 of 0:30"). Since 2.1.0. */
+    seekValue: string;
     download: string;
     count: string;
     countOne: string;

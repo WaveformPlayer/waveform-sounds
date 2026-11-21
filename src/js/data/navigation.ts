@@ -43,7 +43,22 @@ export function rowTarget(key: string, at: number, count: number): number | 'sea
  */
 export function seekTarget(progress: number, key: string): number | null {
     if (key !== 'ArrowRight' && key !== 'ArrowLeft') return null;
-    return clamp(progress + (key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP), 0, 0.999);
+    return clamp(progress + (key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP), 0, SEEK_END);
+}
+
+/** Where End seeks on a slider: just short of the end, so it can't end
+ *  the sound (and with it auto-advance) by accident. */
+export const SEEK_END = 0.999;
+
+/**
+ * The position Home / End seek to on a row's seek slider (the ARIA slider
+ * pattern: they go to the minimum / maximum, not to the first / last row).
+ *
+ * @param key - `KeyboardEvent.key`.
+ * @returns 0 for Home, {@link SEEK_END} for End, else null.
+ */
+export function sliderEdgeTarget(key: string): number | null {
+    return key === 'Home' ? 0 : key === 'End' ? SEEK_END : null;
 }
 
 /**

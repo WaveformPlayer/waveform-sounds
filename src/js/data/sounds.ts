@@ -110,6 +110,19 @@ export function formatDuration(seconds: number | null | undefined): string {
 }
 
 /**
+ * A playback position as a clock: whole seconds, rounded down like a
+ * player's ("0:12", "1:05:09" past an hour).
+ *
+ * @param seconds
+ * @returns e.g. "0:12"; "0:00" for anything unusable.
+ */
+export function formatClock(seconds: number): string {
+    const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+    const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = String(total % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
+
+/**
  * Parse a duration given as seconds (8.02) or as "m:ss" / "h:mm:ss".
  * @param value
  * @returns 

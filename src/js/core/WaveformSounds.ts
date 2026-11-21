@@ -26,11 +26,11 @@
  * @module core
  */
 
-import {availableSorts, facets, matches, normalizeSounds, parseManifest, sortSounds, SORTS} from '../data/sounds.js';
+import {availableSorts, facets, formatClock, formatDuration, matches, normalizeSounds, parseManifest, sortSounds, SORTS} from '../data/sounds.js';
 import {drawRowWaveform, resample} from '../dom/draw.js';
 import {engineOptions, engineTrack} from './engine.js';
 import {Menus} from '../dom/menus.js';
-import {limitToReveal, pageWindow, rowTarget, seekTarget} from '../data/navigation.js';
+import {limitToReveal, pageWindow, rowTarget, seekTarget, sliderEdgeTarget} from '../data/navigation.js';
 import {DEFAULT_OPTIONS, mergeOptions, readDataOptions} from './options.js';
 import {resolveRenderOptions} from '../render/options.js';
 import {loopsByDefault, renderSounds} from '../render/markup.js';
@@ -41,7 +41,7 @@ import {pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 import {h, text} from '../render/html.js';
-import type {decodePeaks, encodePeaks, formatDuration, normalizeKey} from '../data/sounds.js';
+import type {decodePeaks, encodePeaks, normalizeKey} from '../data/sounds.js';
 import type {EngineTrack} from './engine.js';
 import type {RenderOptions} from '../render/options.js';
 import type {Sound, SoundInput, SoundsFilter, SoundsLoopFilter, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
@@ -164,6 +164,7 @@ export class WaveformSounds {
     /** @internal */ declare _autoSurface: boolean | undefined;
     /** @internal */ declare _urlTimer: number | undefined;
     /** @internal */ declare _cued: boolean | undefined;
+    /** @internal The row holding the list's one Tab stop. */ declare _active: HTMLElement | null;
     /** @internal The sound last reported as playing (its pause not yet reported). */ declare _announced: number | null | undefined;
 
     /**
@@ -327,6 +328,36 @@ export class WaveformSounds {
             loopFilter: [...this.container.querySelectorAll<HTMLElement>('[data-ws-loop-filter]')],
         };
         this.rows = indexRows(this.$.list);
+        // Roving tabindex: the list is ONE Tab stop (the active row's
+        // controls); ↑/↓ move between rows. Set here, not in the markup, so
+        // server-rendered HTML from any version gets it.
+        this._active = null;
+        for (const row of this.rows) if (row) this._rowStops(row, false);
+    }
+
+    /**
+     * Make a row's own controls (play, download, and the seek slider when it
+     * is the current sound) Tab stops, or not.
+     * @internal
+     */
+    _rowStops(row: HTMLElement, on: boolean): void {
+        const play = row.querySelector<HTMLElement>('.ws-play');
+        if (play) play.tabIndex = on ? 0 : -1;
+        const dl = row.querySelector<HTMLElement>('.ws-download');
+        if (dl) dl.tabIndex = on ? 0 : -1;
+        const wave = row.querySelector<HTMLElement>('.ws-wave');
+        if (wave) wave.tabIndex = on && Number(row.dataset.wsIndex) === this.currentIndex ? 0 : -1;
+    }
+
+    /**
+     * Move the list's Tab stop to `row` (roving tabindex).
+     * @internal
+     */
+    _rove(row: HTMLElement | null | undefined): void {
+        if (!row || row === this._active) return;
+        if (this._active) this._rowStops(this._active, false);
+        this._active = row;
+        this._rowStops(row, true);
     }
 
     /**
@@ -342,6 +373,8 @@ export class WaveformSounds {
         root.addEventListener('click', (e) => this._onClick(e), sig);
         root.addEventListener('pointerdown', (e) => this._onPointerDown(e), sig);
         root.addEventListener('keydown', (e) => this._onKey(e), sig);
+        // Whatever row gets focus (arrows, a click, a script) holds the Tab stop.
+        $.list.addEventListener('focusin', (e) => this._rove((e.target as Element).closest<HTMLElement>('[data-ws-index]')), sig);
 
         let searchTimer = 0, bpmTimer = 0;
         $.search?.addEventListener('input', () => {
@@ -397,8 +430,15 @@ export class WaveformSounds {
         if (chip) { this.setFilter({type: chip.dataset.wsType}); return; }
         const seg = t.closest<HTMLElement>('[data-ws-loop-filter]');
         if (seg) { this.setFilter({loop: seg.dataset.wsLoopFilter as SoundsLoopFilter}); return; }
-        if (t.closest('[data-ws-more]')) { this.showMore(); return; }
-        if (t.closest('[data-ws-clear]')) { this.clearFilters(); return; }
+        if (t.closest('[data-ws-more]')) { this._showMoreFromButton(); return; }
+        if (t.closest('[data-ws-clear]')) {
+            // The button disappears with the empty state: focus goes back
+            // to the search (else the first row), never to <body>.
+            this.clearFilters();
+            if (this.$.search) this.$.search.focus();
+            else this._focusRow(visibleRows(this.$.list)[0]);
+            return;
+        }
         if (t.closest('[data-ws-loop]')) { this.setLoop(!this.loop); return; }
         const wave = t.closest<HTMLElement>('.ws-wave');
         if (wave) {
@@ -411,6 +451,18 @@ export class WaveformSounds {
         if (!row || t.closest('.ws-download')) return;
         this.toggle(Number(row.dataset.wsIndex));
         this._focusRowQuietly(row);
+    }
+
+    /**
+     * "Show more", pressed: reveal the next page. When that was the last page
+     * the button hides, so focus moves to the first row it revealed rather
+     * than falling to <body>.
+     * @internal
+     */
+    _showMoreFromButton(): void {
+        const before = new Set(visibleRows(this.$.list));
+        this.showMore();
+        if (this.$.more?.hidden) this._focusRow(visibleRows(this.$.list).find((r) => !before.has(r)));
     }
 
     /**
@@ -438,7 +490,8 @@ export class WaveformSounds {
 
     /**
      * Keys on the list: `/` focuses search; ↑/↓/Home/End move between rows
-     * (auditioning while something plays); ←/→ seek the playing row.
+     * (auditioning while something plays); ←/→ seek the playing row, and on
+     * its seek slider Home/End seek to the start/end.
      * @internal
      */
     _onKey(e: KeyboardEvent): void {
@@ -452,7 +505,10 @@ export class WaveformSounds {
         if (!row) return;
 
         const index = Number(row.dataset.wsIndex);
-        const seek = seekTarget(this.progress, e.key);
+        // On the seek slider, Home / End seek (the slider pattern) rather
+        // than jump to the first / last row.
+        const edge = (e.target as Element).closest('.ws-wave') ? sliderEdgeTarget(e.key) : null;
+        const seek = edge ?? seekTarget(this.progress, e.key);
         if (seek !== null) {
             if (index !== this.currentIndex || !this.engine) return;
             e.preventDefault();
@@ -729,6 +785,12 @@ export class WaveformSounds {
             if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
         }
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
+        // The Tab stop never sits on a hidden row.
+        if (!this._active || this._active.hidden) {
+            const first = visibleRows($.list)[0];
+            if (first) this._rove(first);
+            else if (this._active) { this._rowStops(this._active, false); this._active = null; }
+        }
         // Nothing played yet: keep the cued sound one the list still shows.
         if (this._cued && !this.playing) this._cueFirst();
         this._queueUrl();
@@ -940,6 +1002,7 @@ export class WaveformSounds {
         (this.engine as Engine).seekTo(fraction * duration!);
         this.progress = fraction;
         this._paintRow(index);
+        this._paintSlider();
         if (!this.playing) (this.engine as Engine).play();
     }
 
@@ -981,7 +1044,7 @@ export class WaveformSounds {
         this._raf = requestAnimationFrame(() => {
             this._raf = 0;
             this._drawRow(this.currentIndex);
-            this.rows[this.currentIndex!]?.querySelector('.ws-wave')?.setAttribute('aria-valuenow', String(Math.round(this.progress * 100)));
+            this._paintSlider();
         });
     }
 
@@ -1077,10 +1140,28 @@ export class WaveformSounds {
         }
         const wave = row.querySelector<HTMLElement>('.ws-wave');
         if (wave) {
-            wave.tabIndex = current ? 0 : -1;
-            if (!current) wave.setAttribute('aria-valuenow', '0');
+            wave.tabIndex = current && row === this._active ? 0 : -1;
+            if (!current) {
+                wave.setAttribute('aria-valuenow', '0');
+                wave.removeAttribute('aria-valuetext');
+            }
         }
         this._drawRow(index);
+    }
+
+    /**
+     * The current row's seek slider: its position (0–100) and, for a screen
+     * reader, the time ("0:12 of 0:30").
+     * @internal
+     */
+    _paintSlider(): void {
+        const index = this.currentIndex;
+        const wave = index == null ? null : this.rows[index]?.querySelector('.ws-wave');
+        if (!wave) return;
+        wave.setAttribute('aria-valuenow', String(Math.round(this.progress * 100)));
+        const audio = (this.engine as Engine | null)?.audio;
+        const duration = Number.isFinite(audio?.duration) && audio!.duration > 0 ? audio!.duration : this.sounds[index!].duration;
+        if (duration) wave.setAttribute('aria-valuetext', fill(this.strings.seekValue, {time: formatClock(this.progress * duration), duration: formatDuration(duration)}));
     }
 
     /* ── Events & lifecycle ──────────────────────────────────────────── */

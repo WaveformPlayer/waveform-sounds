@@ -2,7 +2,7 @@
 // The data helpers run on the server too (the render entry), so they are
 // tested with no DOM at all.
 import {describe, it, expect} from 'vitest';
-import {
+import {formatClock, 
     encodePeaks, decodePeaks, normalizeKey, parseDuration, formatDuration, titleFromUrl, isLoop,
     normalizeSounds, parseManifest, facets, matches, sortSounds,
 } from '../../../src/js/data/sounds.js';
@@ -167,4 +167,8 @@ describe('loops and one-shots', () => {
         expect(titles('one-shot')).toEqual(['Kick', 'Snare']);
         expect(titles('')).toHaveLength(4);
     });
+});
+
+describe('formatClock', () => {
+    it.each([[0, '0:00'], [12.9, '0:12'], [65, '1:05'], [3909, '1:05:09'], [NaN, '0:00'], [-3, '0:00']])('%s → %s', (n, out) => expect(formatClock(n)).toBe(out));
 });

@@ -119,6 +119,11 @@ function formatDuration(seconds) {
   const total = s < 1 ? Math.ceil(s) : Math.floor(s);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
+function formatClock(seconds) {
+  const total = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const h2 = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), sec = String(total % 60).padStart(2, "0");
+  return h2 ? `${h2}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
 function parseDuration(value) {
   if (value == null || value === "") return null;
   if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
@@ -598,7 +603,11 @@ function rowTarget(key, at, count) {
 }
 function seekTarget(progress, key) {
   if (key !== "ArrowRight" && key !== "ArrowLeft") return null;
-  return clamp(progress + (key === "ArrowRight" ? SEEK_STEP : -SEEK_STEP), 0, 0.999);
+  return clamp(progress + (key === "ArrowRight" ? SEEK_STEP : -SEEK_STEP), 0, SEEK_END);
+}
+var SEEK_END = 0.999;
+function sliderEdgeTarget(key) {
+  return key === "Home" ? 0 : key === "End" ? SEEK_END : null;
 }
 function pageWindow(shown, limit) {
   const visible = new Set(shown.slice(0, limit));
@@ -668,6 +677,7 @@ var DEFAULT_STRINGS = {
   play: "Play {title}",
   pause: "Pause {title}",
   seek: "Seek {title}",
+  seekValue: "{time} of {duration}",
   download: "Download {title}",
   count: "{count} sounds",
   countOne: "1 sound",
@@ -1395,6 +1405,31 @@ var WaveformSounds = class _WaveformSounds {
       loopFilter: [...this.container.querySelectorAll("[data-ws-loop-filter]")]
     };
     this.rows = indexRows(this.$.list);
+    this._active = null;
+    for (const row of this.rows) if (row) this._rowStops(row, false);
+  }
+  /**
+   * Make a row's own controls (play, download, and the seek slider when it
+   * is the current sound) Tab stops, or not.
+   * @internal
+   */
+  _rowStops(row, on) {
+    const play = row.querySelector(".ws-play");
+    if (play) play.tabIndex = on ? 0 : -1;
+    const dl = row.querySelector(".ws-download");
+    if (dl) dl.tabIndex = on ? 0 : -1;
+    const wave = row.querySelector(".ws-wave");
+    if (wave) wave.tabIndex = on && Number(row.dataset.wsIndex) === this.currentIndex ? 0 : -1;
+  }
+  /**
+   * Move the list's Tab stop to `row` (roving tabindex).
+   * @internal
+   */
+  _rove(row) {
+    if (!row || row === this._active) return;
+    if (this._active) this._rowStops(this._active, false);
+    this._active = row;
+    this._rowStops(row, true);
   }
   /**
    * Every listener. All are removed by `destroy()` through one
@@ -1408,6 +1443,7 @@ var WaveformSounds = class _WaveformSounds {
     root.addEventListener("click", (e) => this._onClick(e), sig);
     root.addEventListener("pointerdown", (e) => this._onPointerDown(e), sig);
     root.addEventListener("keydown", (e) => this._onKey(e), sig);
+    $.list.addEventListener("focusin", (e) => this._rove(e.target.closest("[data-ws-index]")), sig);
     let searchTimer = 0, bpmTimer = 0;
     $.search?.addEventListener("input", () => {
       clearTimeout(searchTimer);
@@ -1466,11 +1502,13 @@ var WaveformSounds = class _WaveformSounds {
       return;
     }
     if (t.closest("[data-ws-more]")) {
-      this.showMore();
+      this._showMoreFromButton();
       return;
     }
     if (t.closest("[data-ws-clear]")) {
       this.clearFilters();
+      if (this.$.search) this.$.search.focus();
+      else this._focusRow(visibleRows(this.$.list)[0]);
       return;
     }
     if (t.closest("[data-ws-loop]")) {
@@ -1486,6 +1524,17 @@ var WaveformSounds = class _WaveformSounds {
     if (!row || t.closest(".ws-download")) return;
     this.toggle(Number(row.dataset.wsIndex));
     this._focusRowQuietly(row);
+  }
+  /**
+   * "Show more", pressed: reveal the next page. When that was the last page
+   * the button hides, so focus moves to the first row it revealed rather
+   * than falling to <body>.
+   * @internal
+   */
+  _showMoreFromButton() {
+    const before = new Set(visibleRows(this.$.list));
+    this.showMore();
+    if (this.$.more?.hidden) this._focusRow(visibleRows(this.$.list).find((r) => !before.has(r)));
   }
   /**
    * Mouse and pen seek on PRESS, like every scrubber. Remembers the
@@ -1510,7 +1559,8 @@ var WaveformSounds = class _WaveformSounds {
   }
   /**
    * Keys on the list: `/` focuses search; ↑/↓/Home/End move between rows
-   * (auditioning while something plays); ←/→ seek the playing row.
+   * (auditioning while something plays); ←/→ seek the playing row, and on
+   * its seek slider Home/End seek to the start/end.
    * @internal
    */
   _onKey(e) {
@@ -1523,7 +1573,8 @@ var WaveformSounds = class _WaveformSounds {
     const row = e.target.closest?.("[data-ws-index]");
     if (!row) return;
     const index = Number(row.dataset.wsIndex);
-    const seek = seekTarget(this.progress, e.key);
+    const edge = e.target.closest(".ws-wave") ? sliderEdgeTarget(e.key) : null;
+    const seek = edge ?? seekTarget(this.progress, e.key);
     if (seek !== null) {
       if (index !== this.currentIndex || !this.engine) return;
       e.preventDefault();
@@ -1779,6 +1830,14 @@ var WaveformSounds = class _WaveformSounds {
       if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
     }
     if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
+    if (!this._active || this._active.hidden) {
+      const first = visibleRows($.list)[0];
+      if (first) this._rove(first);
+      else if (this._active) {
+        this._rowStops(this._active, false);
+        this._active = null;
+      }
+    }
     if (this._cued && !this.playing) this._cueFirst();
     this._queueUrl();
     this._emit("filter", { visible: shown.length, total: this.sounds.length, filter: { ...this.filter }, sort: this.sortBy });
@@ -1990,6 +2049,7 @@ var WaveformSounds = class _WaveformSounds {
     this.engine.seekTo(fraction * duration);
     this.progress = fraction;
     this._paintRow(index);
+    this._paintSlider();
     if (!this.playing) this.engine.play();
   }
   /**
@@ -2029,7 +2089,7 @@ var WaveformSounds = class _WaveformSounds {
     this._raf = requestAnimationFrame(() => {
       this._raf = 0;
       this._drawRow(this.currentIndex);
-      this.rows[this.currentIndex]?.querySelector(".ws-wave")?.setAttribute("aria-valuenow", String(Math.round(this.progress * 100)));
+      this._paintSlider();
     });
   }
   /**
@@ -2118,10 +2178,27 @@ var WaveformSounds = class _WaveformSounds {
     }
     const wave = row.querySelector(".ws-wave");
     if (wave) {
-      wave.tabIndex = current ? 0 : -1;
-      if (!current) wave.setAttribute("aria-valuenow", "0");
+      wave.tabIndex = current && row === this._active ? 0 : -1;
+      if (!current) {
+        wave.setAttribute("aria-valuenow", "0");
+        wave.removeAttribute("aria-valuetext");
+      }
     }
     this._drawRow(index);
+  }
+  /**
+   * The current row's seek slider: its position (0–100) and, for a screen
+   * reader, the time ("0:12 of 0:30").
+   * @internal
+   */
+  _paintSlider() {
+    const index = this.currentIndex;
+    const wave = index == null ? null : this.rows[index]?.querySelector(".ws-wave");
+    if (!wave) return;
+    wave.setAttribute("aria-valuenow", String(Math.round(this.progress * 100)));
+    const audio = this.engine?.audio;
+    const duration = Number.isFinite(audio?.duration) && audio.duration > 0 ? audio.duration : this.sounds[index].duration;
+    if (duration) wave.setAttribute("aria-valuetext", fill(this.strings.seekValue, { time: formatClock(this.progress * duration), duration: formatDuration(duration) }));
   }
   /* ── Events & lifecycle ──────────────────────────────────────────── */
   /**

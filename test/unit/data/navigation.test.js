@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe, it, expect} from 'vitest';
-import {rowTarget, seekTarget, pageWindow, limitToReveal, SEEK_STEP} from '../../../src/js/data/navigation.js';
+import {rowTarget, seekTarget, sliderEdgeTarget, pageWindow, limitToReveal, SEEK_STEP, SEEK_END} from '../../../src/js/data/navigation.js';
 
 describe('rowTarget', () => {
     it.each([
@@ -30,5 +30,14 @@ describe('paging', () => {
     it('limitToReveal grows the page only when needed', () => {
         expect(limitToReveal(2, 5)).toBe(6);
         expect(limitToReveal(10, 5)).toBe(10);
+    });
+});
+
+describe('sliderEdgeTarget', () => {
+    it('Home seeks to the start, End to just short of the end, anything else is not a seek', () => {
+        expect(sliderEdgeTarget('Home')).toBe(0);
+        expect(sliderEdgeTarget('End')).toBe(SEEK_END);
+        expect(SEEK_END).toBeLessThan(1);
+        expect(sliderEdgeTarget('ArrowDown')).toBeNull();
     });
 });

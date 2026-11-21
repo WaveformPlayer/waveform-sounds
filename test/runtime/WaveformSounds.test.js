@@ -748,6 +748,66 @@ describe('urlState', () => {
 describe('keyboard', () => {
     const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true}));
 
+    const stops = () => [...host.querySelectorAll('[data-ws-list] *')].filter((e) => e.tabIndex >= 0 && !e.closest('[hidden]'));
+
+    it('the list is ONE Tab stop that follows focus (roving tabindex, set at runtime)', async () => {
+        const ws = await make({sounds: SOUNDS.map((s, i) => (i === 1 ? {...s, download: '/free/d.wav'} : s))});
+        expect(stops()).toEqual([rows()[0].querySelector('.ws-play')]);
+        rows()[0].querySelector('.ws-play').focus();
+        key(document.activeElement, 'ArrowDown');
+        expect(stops()).toEqual([rows()[1].querySelector('.ws-play'), rows()[1].querySelector('.ws-download')]);
+        // The current row's seek slider joins its Tab stop.
+        ws.play(1);
+        await settle();
+        expect(stops()).toContain(rows()[1].querySelector('.ws-wave'));
+        // A filter that hides the row moves the stop to the first row shown.
+        ws.setFilter({type: 'Bass'});
+        expect(stops()).toEqual([rows()[0].querySelector('.ws-play')]);
+    });
+
+    it('server-rendered markup is unchanged: the tabindex is the runtime\'s', () => {
+        expect(renderSoundsElement(SOUNDS)).not.toMatch(/class="ws-play"[^>]*tabindex/);
+    });
+
+    it('"Clear filters" hands focus to the search box', async () => {
+        const ws = await make();
+        ws.setFilter({query: 'nothing matches this'});
+        const clear = host.querySelector('[data-ws-clear]');
+        clear.focus();
+        clear.click();
+        expect(document.activeElement).toBe(host.querySelector('[data-ws-search]'));
+    });
+
+    it('the last "Show more" hands focus to the first row it revealed', async () => {
+        await make({pageSize: 2});
+        const more = host.querySelector('[data-ws-more]');
+        more.focus();
+        more.click();
+        expect(more.hidden).toBe(true);
+        expect(document.activeElement).toBe(rows()[2].querySelector('.ws-play'));
+    });
+
+    it('the seek slider reads out the time, and Home / End seek on it', async () => {
+        const ws = await make();
+        MockWaveformPlayer.durations[SOUNDS[0].url] = 30;
+        ws.play(0);
+        await settle();
+        const engine = MockWaveformPlayer.instances[0];
+        engine._tick(12);
+        await new Promise((r) => requestAnimationFrame(r));
+        const wave = rows()[0].querySelector('.ws-wave');
+        expect(wave.getAttribute('aria-valuenow')).toBe('40');
+        expect(wave.getAttribute('aria-valuetext')).toBe('0:12 of 0:30');
+        wave.focus();
+        key(wave, 'End');
+        expect(engine.calls.seekTo.at(-1)).toBeCloseTo(30 * 0.999);
+        expect(document.activeElement).toBe(wave); // a seek, not a jump to the last row
+        key(wave, 'Home');
+        expect(engine.calls.seekTo.at(-1)).toBe(0);
+        expect(wave.getAttribute('aria-valuetext')).toBe('0:00 of 0:30');
+        delete MockWaveformPlayer.durations[SOUNDS[0].url];
+    });
+
     it('a click on a row title moves focus to its play button, so arrows work next', async () => {
         const ws = await make();
         rows()[1].querySelector('.ws-title').click();

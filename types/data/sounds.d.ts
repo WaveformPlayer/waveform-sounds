@@ -51,6 +51,14 @@ export declare function normalizeKey(key: string | null | undefined): string;
  */
 export declare function formatDuration(seconds: number | null | undefined): string;
 /**
+ * A playback position as a clock: whole seconds, rounded down like a
+ * player's ("0:12", "1:05:09" past an hour).
+ *
+ * @param seconds
+ * @returns e.g. "0:12"; "0:00" for anything unusable.
+ */
+export declare function formatClock(seconds: number): string;
+/**
  * Parse a duration given as seconds (8.02) or as "m:ss" / "h:mm:ss".
  * @param value
  * @returns

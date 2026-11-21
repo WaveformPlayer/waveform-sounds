@@ -25,10 +25,10 @@
  *
  * @module core
  */
-import { facets, matches, normalizeSounds, parseManifest, sortSounds } from '../data/sounds.js';
+import { facets, formatDuration, matches, normalizeSounds, parseManifest, sortSounds } from '../data/sounds.js';
 import { DEFAULT_OPTIONS } from './options.js';
 import { renderSounds } from '../render/markup.js';
-import type { decodePeaks, encodePeaks, formatDuration, normalizeKey } from '../data/sounds.js';
+import type { decodePeaks, encodePeaks, normalizeKey } from '../data/sounds.js';
 import type { Sound, SoundsFilter, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings } from '../types.js';
 export { DEFAULT_OPTIONS };
 export declare class WaveformSounds {
