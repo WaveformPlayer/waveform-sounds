@@ -129,8 +129,10 @@ before the first play.)
 
 | Key | Does |
 |---|---|
+| Tab | The list is one stop: the focused (else first) row |
 | ↑ / ↓ | Move between sounds; while one plays, play the next |
 | ← / → | Seek the playing sound |
+| Home / End | First / last sound; on the playing row's seek slider, its start / end |
 | Space / Enter | Play / pause |
 | `/` | Search |
 
@@ -138,10 +140,18 @@ before the first play.)
 
 ```js
 import {renderSounds} from '@arraypress/waveform-sounds/render';
-const html = `<div data-waveform-sounds>${renderSounds(sounds, options)}</div>`;
+const html = `<div class="waveform-sounds waveform-sounds--inline" data-waveform-sounds>${renderSounds(sounds, options)}</div>`;
 ```
 
-The runtime adopts that markup instead of rebuilding it.
+The runtime adopts that markup instead of rebuilding it. Keep the
+`waveform-sounds` classes on the wrapper (`waveform-sounds--strip` for the
+strip): the stylesheet hangs off them, so without them the list paints
+unstyled until the script runs and then shifts. `renderSoundsElement(sounds,
+options, className)` writes the whole wrapper — the classes, and a `data-*`
+attribute for every render option you set, so the runtime keeps them (pass
+the same options to both, or a `pageSize` the runtime doesn't know is
+re-paged to 50). `pickRenderOptions(props)` picks the options that shape
+the markup out of a component's props.
 
 ## Theming
 
