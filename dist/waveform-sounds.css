@@ -43,13 +43,24 @@
     color: inherit;
     font: inherit;
 }
-/* The inverse above is relative colour: Chrome 122, Firefox 128, Safari 18,
- * all newer than the 2.0 floor. Where it's invalid, until the runtime
- * measures --ws-surface (a server-rendered first paint, or no script), the
- * ink would be the text colour on a text-colour fill: use the system
- * background instead, as the dropdowns do. */
-@supports not (color: rgb(from red calc(255 - r) calc(255 - g) calc(255 - b))) {
+/* The inverse above is relative colour FROM currentColor: Chrome 131,
+ * Firefox 133, Safari 18, all newer than the 2.0 floor. Chrome 119–130
+ * parse relative colour, but not from currentColor, so the guard names it;
+ * Firefox 128–132 parse it but resolve currentColor as black (white ink on
+ * a light fill), so they are named too: Firefox (-moz-appearance) without
+ * a feature of its 133 (letter-spacing in %). Where it's unusable the ink
+ * is the surface the runtime measures. Until it has
+ * (a server-rendered first paint, or no script — the runtime sets
+ * data-ws-initialized as it measures), there is no ink that is right on
+ * every page (the system Canvas is white on a dark page that doesn't declare
+ * color-scheme), so a pressed control is a TINT with text-colour ink
+ * instead of an inversion: readable on any page. */
+@supports (not (color: rgb(from currentColor r g b))) or ((-moz-appearance: none) and (not (letter-spacing: 1%))) {
     .waveform-sounds { --ws-on-accent: var(--ws-surface, Canvas); }
+    .waveform-sounds:where(:not([data-ws-initialized])) {
+        --ws-accent-fill: color-mix(in srgb, currentColor 22%, transparent);
+        --ws-on-accent: currentColor;
+    }
 }
 .waveform-sounds *, .waveform-sounds *::before, .waveform-sounds *::after { box-sizing: border-box; }
 .waveform-sounds [hidden] { display: none !important; }
@@ -99,7 +110,8 @@
     color: inherit;
     cursor: text;
 }
-.ws-search:focus-within { border-color: var(--ws-accent); }
+/* The focus ring is the field's frame, not the bare input inside it. */
+.ws-search:focus-within { border-color: var(--ws-accent); outline: 2px solid var(--ws-accent); outline-offset: 2px; }
 .ws-search-input {
     flex: 1;
     min-width: 0;
@@ -108,8 +120,8 @@
     background: none;
     color: inherit;
     font: inherit;
-    outline: none;
 }
+.ws-search-input:focus { outline: none; } /* the frame above carries the ring */
 .ws-search .ws-icon, .ws-search-input::placeholder { color: var(--ws-muted); }
 /* WebKit/Blink's clear button, redrawn in the text colour. The mask stays
  * prefixed: unprefixed `mask` is Chrome/Edge 120+. */
@@ -172,9 +184,9 @@
     color: inherit;
     font: inherit;
     font-size: 0.9em;
-    outline: none;
 }
 .ws-menu-search:focus { border-color: var(--ws-accent); }
+.ws-menu-search:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 1px; }
 .ws-menu-list { list-style: none; margin: 0; padding: 0; max-height: 18rem; overflow-y: auto; outline: none; }
 .ws-menu-option {
     display: flex;
@@ -198,7 +210,21 @@
 .ws-bpm-pop { width: 17rem; padding: 0.85rem 1rem 0.7rem; }
 .ws-bpm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
 .ws-bpm-readout { font-weight: 600; font-variant-numeric: tabular-nums; }
-.ws-bpm-clear { padding: 0; border: 0; color: var(--ws-muted); font-size: 0.85em; }
+.ws-bpm-clear {
+    /* A 24px target (WCAG 2.5.8) without growing the head. */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    margin: -2px -0.3rem -2px 0;
+    padding: 0 0.3rem;
+    border: 0;
+    border-radius: 4px;
+    color: var(--ws-muted);
+    font-size: 0.85em;
+}
+.ws-bpm-clear:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 0; }
 .ws-bpm-clear:hover { color: inherit; text-decoration: underline; }
 
 /* Two native range inputs stacked on one track. The track and the filled
@@ -331,9 +357,11 @@
 /* ── The pressed controls: the accent fill, inverted ink ─────────────── */
 /* After the hovers, so a pressed control keeps its fill under the pointer.
  * The CHILDREN take the ink, never the button (THE ONE RULE, at the top). */
+/* `--ws-accent-fill` is unset, except for a tint before the runtime has
+ * measured the surface in engines without relative colour (top of file). */
 .ws-loop[aria-pressed='true'],
-.ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); }
-.ws-seg-btn[aria-pressed='true'] { background: var(--ws-accent); }
+.ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent-fill, var(--ws-accent)); }
+.ws-seg-btn[aria-pressed='true'] { background: var(--ws-accent-fill, var(--ws-accent)); }
 .ws-loop[aria-pressed='true'] > *,
 .ws-seg-btn[aria-pressed='true'] > *,
 .ws-chip[aria-pressed='true'] > * { color: var(--ws-on-accent); }
@@ -380,7 +408,7 @@
     transition: background 0.15s, color 0.15s;
 }
 .ws-row:hover .ws-play { background: color-mix(in srgb, currentColor 12%, transparent); }
-.ws-row.is-current .ws-play { background: var(--ws-accent); }
+.ws-row.is-current .ws-play { background: var(--ws-accent-fill, var(--ws-accent)); }
 .ws-row.is-current .ws-play > * { color: var(--ws-on-accent); }
 .ws-play .ws-icon-pause { display: none; }
 .ws-row.is-playing .ws-play .ws-icon-play { display: none; }
@@ -452,6 +480,13 @@
     .ws-cells > .ws-cell:not(:empty) ~ .ws-cell:not(:empty)::before { content: '·'; margin-right: 0.5rem; opacity: 0.6; }
     .ws-wave { grid-area: wave; margin-top: 0.35rem; min-width: 0; }
     .ws-download { grid-area: dl; align-self: start; }
+    /* The menus open from the controls row, never wider than it: anchored
+       to their own button, a wide panel (the BPM range) near the end of a
+       phone-width row hung off the screen's edge. */
+    .ws-controls { position: relative; }
+    .ws-menu { position: static; }
+    .ws-menu-pop { min-width: min(14rem, 100%); max-width: 100%; }
+    .ws-bpm-pop { width: min(17rem, 100%); }
 }
 
 /* ── Footer bits ─────────────────────────────────────────────────────── */
@@ -484,6 +519,33 @@
     .ws-range { --ws-thumb: 24px; height: 2.25rem; }
     .ws-range-input::-webkit-slider-thumb { margin-top: calc((2.25rem - var(--ws-thumb)) / 2); }
     .ws-menu-option { padding: 0.75rem 0.6rem; }
+}
+
+/* Forced colours (Windows High Contrast): the pressed states and the
+ * playing row's button are the system Highlight, with their icons in
+ * HighlightText (left to the system, the inverted ink vanished into the
+ * forced background); the BPM track and thumb are drawn in system colours,
+ * and focus is an outline, never only a box-shadow (which is dropped). The
+ * canvases follow too: the runtime draws them in CanvasText / Highlight. */
+@media (forced-colors: active) {
+    .ws-loop[aria-pressed='true'],
+    .ws-chip[aria-pressed='true'],
+    .ws-seg-btn[aria-pressed='true'],
+    .ws-row.is-current .ws-play {
+        forced-color-adjust: none;
+        border-color: Highlight;
+        background: Highlight;
+        color: HighlightText;
+    }
+    .ws-loop[aria-pressed='true'] > *,
+    .ws-seg-btn[aria-pressed='true'] > *,
+    .ws-chip[aria-pressed='true'] > *,
+    .ws-row.is-current .ws-play > * { color: HighlightText; }
+    .ws-range::before, .ws-range::after { forced-color-adjust: none; }
+    .ws-range::before { background: GrayText; }
+    .ws-range::after { background: Highlight; }
+    .ws-range-input:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+    .ws-menu-option.is-active { outline: 2px solid Highlight; }
 }
 
 @media (prefers-reduced-motion: reduce) {

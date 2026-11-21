@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {parseAlpha, pageSurface} from '../../../src/js/dom/colors.js';
+import {ancestorsOf, parseAlpha, pageSurface} from '../../../src/js/dom/colors.js';
 
 describe('parseAlpha', () => {
     it.each([
@@ -24,5 +24,18 @@ describe('pageSurface', () => {
         document.body.appendChild(el);
         expect(pageSurface(el)).toBe('#fff');
         el.remove();
+    });
+});
+
+describe('ancestorsOf', () => {
+    it('lists every element above, nearest first, through a shadow root', () => {
+        const outer = document.createElement('div');
+        const host = document.createElement('div');
+        outer.appendChild(host);
+        document.body.appendChild(outer);
+        const inner = document.createElement('p');
+        host.attachShadow({mode: 'open'}).appendChild(inner);
+        expect(ancestorsOf(inner)).toEqual([host, outer, document.body, document.documentElement]);
+        outer.remove();
     });
 });

@@ -24,6 +24,22 @@ export declare function parseAlpha(color: string | null | undefined): number;
  */
 export declare function pageSurface(el: Element, minAlpha?: number): string;
 /**
+ * Is the page in forced colours (Windows High Contrast)? Then the canvas
+ * must draw in system colours too.
+ *
+ * @returns
+ */
+export declare function forcedColors(): boolean;
+/**
+ * Every element above `el`, nearest first, crossing shadow-root boundaries
+ * (the elements whose class, style or theme attribute can change what the
+ * list inherits).
+ *
+ * @param el
+ * @returns
+ */
+export declare function ancestorsOf(el: Element): Element[];
+/**
  * Resolve any CSS colour (a `var()`, `color-mix()`, `currentColor`) to a
  * concrete value, as it would compute inside `container`.
  *

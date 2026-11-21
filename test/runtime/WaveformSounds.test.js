@@ -299,6 +299,39 @@ describe('filtering, sorting and paging', () => {
         document.body.style.backgroundColor = '';
     });
 
+    it('re-measures the surface when a theme flips on ANY ancestor, not just <html>/<body>', async () => {
+        const section = document.createElement('section');
+        const card = document.createElement('div');
+        document.body.appendChild(section);
+        section.appendChild(card);
+        card.appendChild(host);
+        const style = document.createElement('style');
+        style.textContent = 'section.dark { background-color: rgb(12, 12, 12); } section { background-color: rgb(240, 240, 240); }';
+        document.head.appendChild(style);
+        await make();
+        expect(host.style.getPropertyValue('--ws-surface')).toBe('rgb(240, 240, 240)');
+        section.classList.add('dark');
+        await settle();
+        await new Promise((r) => requestAnimationFrame(r));
+        expect(host.style.getPropertyValue('--ws-surface')).toBe('rgb(12, 12, 12)');
+        document.body.appendChild(host);
+        section.remove();
+        style.remove();
+    });
+
+    it('under forced colours the canvases use CanvasText / Highlight, whatever the options say', async () => {
+        const real = window.matchMedia;
+        window.matchMedia = (q) => ({matches: q === '(forced-colors: active)', addEventListener() {}, removeEventListener() {}});
+        try {
+            const ws = await make({waveformColor: 'red', progressColor: 'blue'});
+            const probe = (c) => { const p = document.createElement('span'); p.style.color = c; host.appendChild(p); const v = getComputedStyle(p).color; p.remove(); return v; };
+            expect(ws.colors).toEqual({wave: probe('CanvasText'), progress: probe('Highlight')});
+            expect(ws.colors.wave).not.toBe('red');
+        } finally {
+            window.matchMedia = real;
+        }
+    });
+
     it('leaves a --ws-surface the site set alone', async () => {
         host.style.setProperty('--ws-surface', 'red');
         await make();
@@ -763,6 +796,13 @@ describe('keyboard', () => {
         // A filter that hides the row moves the stop to the first row shown.
         ws.setFilter({type: 'Bass'});
         expect(stops()).toEqual([rows()[0].querySelector('.ws-play')]);
+    });
+
+    it('focus in a row that a filter hides moves to the first row shown, not <body>', async () => {
+        const ws = await make();
+        rows()[1].querySelector('.ws-play').focus();
+        ws.setFilter({type: 'Bass'});
+        expect(document.activeElement).toBe(rows()[0].querySelector('.ws-play'));
     });
 
     it('server-rendered markup is unchanged: the tabindex is the runtime\'s', () => {

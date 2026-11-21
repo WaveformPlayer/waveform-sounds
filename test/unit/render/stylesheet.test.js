@@ -36,8 +36,9 @@ describe('stylesheet', () => {
         expect(used.filter((c) => !emitted.has(c) && !toggled.has(c))).toEqual([]);
     });
 
-    it('names only data-* attributes the markup writes', () => {
+    it('names only data-* attributes the markup writes or the runtime sets', () => {
+        const set = new Set([...runtimeSource.matchAll(/dataset\.(\w+)\s*=[^=]/g)].map((m) => `data-${m[1].replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`));
         const used = [...new Set([...selectors.matchAll(/\[(data-[\w-]+)/g)].map((m) => m[1]))];
-        expect(used.filter((a) => !new RegExp(`\\s${a}[\\s=>]`).test(markup))).toEqual([]);
+        expect(used.filter((a) => !set.has(a) && !new RegExp(`\\s${a}[\\s=>]`).test(markup))).toEqual([]);
     });
 });

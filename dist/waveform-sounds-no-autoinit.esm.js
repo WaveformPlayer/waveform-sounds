@@ -1207,9 +1207,21 @@ function pageSurface(el, minAlpha = 0.95) {
   }
   return "#fff";
 }
+function forcedColors() {
+  try {
+    return typeof matchMedia === "function" && matchMedia("(forced-colors: active)").matches;
+  } catch {
+    return false;
+  }
+}
+function ancestorsOf(el) {
+  const out = [];
+  for (let node = el.parentElement || el.getRootNode?.()?.host; node; node = node.parentElement || node.getRootNode?.()?.host) out.push(node);
+  return out;
+}
 function resolveCssColor(container, value) {
   const probe = document.createElement("span");
-  probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
+  probe.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;forced-color-adjust:none";
   probe.style.color = value;
   container.appendChild(probe);
   const color = getComputedStyle(probe).color;
@@ -1643,22 +1655,31 @@ var WaveformSounds = class _WaveformSounds {
       });
       this._ro.observe(this.$.list);
     }
-    const refresh = () => requestAnimationFrame(() => {
-      this._resolveColors();
-      this._redrawAll();
-    });
+    let queued = 0;
+    const refresh = () => {
+      if (queued) return;
+      queued = requestAnimationFrame(() => {
+        queued = 0;
+        this._resolveColors();
+        this._redrawAll();
+      });
+    };
     this._mo = new MutationObserver(refresh);
-    const watch = { attributes: true, attributeFilter: ["class", "data-theme", "data-color-scheme", "style"] };
-    this._mo.observe(document.documentElement, watch);
-    if (document.body) this._mo.observe(document.body, watch);
-    try {
-      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh, { signal: this._ctl.signal });
-    } catch {
+    this._mo.observe(this.container, { attributes: true, attributeFilter: ["class", "data-theme", "data-color-scheme"] });
+    for (const node of ancestorsOf(this.container)) {
+      this._mo.observe(node, { attributes: true, attributeFilter: ["class", "data-theme", "data-color-scheme", "style"] });
+    }
+    for (const query of ["(prefers-color-scheme: dark)", "(forced-colors: active)"]) {
+      try {
+        window.matchMedia(query).addEventListener("change", refresh, { signal: this._ctl.signal });
+      } catch {
+      }
     }
   }
   /**
-   * Resolve the canvas colours (options, else the CSS custom properties)
-   * and keep `--ws-surface` current unless the site set it.
+   * Resolve the canvas colours (options, else the CSS custom properties;
+   * system colours under forced colours) and keep `--ws-surface` current
+   * unless the site set it.
    * @internal
    */
   _resolveColors() {
@@ -1667,9 +1688,10 @@ var WaveformSounds = class _WaveformSounds {
       this.container.style.removeProperty("--ws-surface");
       this.container.style.setProperty("--ws-surface", pageSurface(this.container));
     }
+    const forced = forcedColors();
     this.colors = {
-      wave: this.options.waveformColor || resolveCssColor(this.container, "var(--ws-wave-color)") || "rgba(128,128,128,.5)",
-      progress: this.options.progressColor || resolveCssColor(this.container, "var(--ws-progress-color)") || "currentColor"
+      wave: (forced ? resolveCssColor(this.container, "CanvasText") : this.options.waveformColor || resolveCssColor(this.container, "var(--ws-wave-color)")) || "rgba(128,128,128,.5)",
+      progress: (forced ? resolveCssColor(this.container, "Highlight") : this.options.progressColor || resolveCssColor(this.container, "var(--ws-progress-color)")) || "currentColor"
     };
   }
   /**
@@ -1831,9 +1853,12 @@ var WaveformSounds = class _WaveformSounds {
     }
     if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
     if (!this._active || this._active.hidden) {
+      const lost = !!this._active?.contains(document.activeElement);
       const first = visibleRows($.list)[0];
-      if (first) this._rove(first);
-      else if (this._active) {
+      if (first) {
+        this._rove(first);
+        if (lost) this._focusRowQuietly(first);
+      } else if (this._active) {
         this._rowStops(this._active, false);
         this._active = null;
       }

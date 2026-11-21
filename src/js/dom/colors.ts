@@ -41,6 +41,34 @@ export function pageSurface(el: Element, minAlpha: number = 0.95): string {
 }
 
 /**
+ * Is the page in forced colours (Windows High Contrast)? Then the canvas
+ * must draw in system colours too.
+ *
+ * @returns 
+ */
+export function forcedColors(): boolean {
+    try {
+        return typeof matchMedia === 'function' && matchMedia('(forced-colors: active)').matches;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Every element above `el`, nearest first, crossing shadow-root boundaries
+ * (the elements whose class, style or theme attribute can change what the
+ * list inherits).
+ *
+ * @param el
+ * @returns 
+ */
+export function ancestorsOf(el: Element): Element[] {
+    const out: Element[] = [];
+    for (let node = el.parentElement || (el.getRootNode?.() as ShadowRoot | undefined)?.host; node; node = node.parentElement || (node.getRootNode?.() as ShadowRoot | undefined)?.host) out.push(node);
+    return out;
+}
+
+/**
  * Resolve any CSS colour (a `var()`, `color-mix()`, `currentColor`) to a
  * concrete value, as it would compute inside `container`.
  *
@@ -50,7 +78,9 @@ export function pageSurface(el: Element, minAlpha: number = 0.95): string {
  */
 export function resolveCssColor(container: Element, value: string): string {
     const probe = document.createElement('span');
-    probe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden';
+    // forced-color-adjust: none, so a system colour (CanvasText, Highlight)
+    // resolves as itself under forced colours instead of being forced.
+    probe.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;forced-color-adjust:none';
     probe.style.color = value;
     container.appendChild(probe);
     const color = getComputedStyle(probe).color;

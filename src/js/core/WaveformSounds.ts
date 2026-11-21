@@ -37,7 +37,7 @@ import {loopsByDefault, renderSounds} from '../render/markup.js';
 import {indexRows, orderRows, readRows, visibleRows} from '../dom/rows.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill} from '../render/strings.js';
 import {bpmExtent, bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.js';
-import {pageSurface, resolveCssColor} from '../dom/colors.js';
+import {ancestorsOf, forcedColors, pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 import {h, text} from '../render/html.js';
@@ -579,19 +579,31 @@ export class WaveformSounds {
             });
             this._ro.observe(this.$.list);
         }
-        const refresh = () => requestAnimationFrame(() => { this._resolveColors(); this._redrawAll(); });
+        let queued = 0;
+        const refresh = () => {
+            if (queued) return;
+            queued = requestAnimationFrame(() => { queued = 0; this._resolveColors(); this._redrawAll(); });
+        };
+        // A theme can flip on ANY ancestor (a dark section, a themed card,
+        // a framework's root div), not just <html> / <body>. The container
+        // itself counts for class and theme, not style: the runtime writes
+        // --ws-surface there.
         this._mo = new MutationObserver(refresh);
-        const watch = {attributes: true, attributeFilter: ['class', 'data-theme', 'data-color-scheme', 'style']};
-        this._mo.observe(document.documentElement, watch);
-        if (document.body) this._mo.observe(document.body, watch);
-        try {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refresh, {signal: this._ctl.signal});
-        } catch { /* no matchMedia */ }
+        this._mo.observe(this.container, {attributes: true, attributeFilter: ['class', 'data-theme', 'data-color-scheme']});
+        for (const node of ancestorsOf(this.container)) {
+            this._mo.observe(node, {attributes: true, attributeFilter: ['class', 'data-theme', 'data-color-scheme', 'style']});
+        }
+        for (const query of ['(prefers-color-scheme: dark)', '(forced-colors: active)']) {
+            try {
+                window.matchMedia(query).addEventListener('change', refresh, {signal: this._ctl.signal});
+            } catch { /* no matchMedia */ }
+        }
     }
 
     /**
-     * Resolve the canvas colours (options, else the CSS custom properties)
-     * and keep `--ws-surface` current unless the site set it.
+     * Resolve the canvas colours (options, else the CSS custom properties;
+     * system colours under forced colours) and keep `--ws-surface` current
+     * unless the site set it.
      * @internal
      */
     _resolveColors(): void {
@@ -600,9 +612,12 @@ export class WaveformSounds {
             this.container.style.removeProperty('--ws-surface');
             this.container.style.setProperty('--ws-surface', pageSurface(this.container));
         }
+        // Forced colours: the system's own text and highlight, whatever the
+        // options or the CSS say (as every other part of the list does).
+        const forced = forcedColors();
         this.colors = {
-            wave: this.options.waveformColor || resolveCssColor(this.container, 'var(--ws-wave-color)') || 'rgba(128,128,128,.5)',
-            progress: this.options.progressColor || resolveCssColor(this.container, 'var(--ws-progress-color)') || 'currentColor',
+            wave: (forced ? resolveCssColor(this.container, 'CanvasText') : this.options.waveformColor || resolveCssColor(this.container, 'var(--ws-wave-color)')) || 'rgba(128,128,128,.5)',
+            progress: (forced ? resolveCssColor(this.container, 'Highlight') : this.options.progressColor || resolveCssColor(this.container, 'var(--ws-progress-color)')) || 'currentColor',
         };
     }
 
@@ -785,11 +800,16 @@ export class WaveformSounds {
             if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
         }
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
-        // The Tab stop never sits on a hidden row.
+        // The Tab stop never sits on a hidden row; and if focus was in the
+        // row just filtered away, it follows the stop instead of falling
+        // to <body>.
         if (!this._active || this._active.hidden) {
+            const lost = !!this._active?.contains(document.activeElement);
             const first = visibleRows($.list)[0];
-            if (first) this._rove(first);
-            else if (this._active) { this._rowStops(this._active, false); this._active = null; }
+            if (first) {
+                this._rove(first);
+                if (lost) this._focusRowQuietly(first);
+            } else if (this._active) { this._rowStops(this._active, false); this._active = null; }
         }
         // Nothing played yet: keep the cued sound one the list still shows.
         if (this._cued && !this.playing) this._cueFirst();
