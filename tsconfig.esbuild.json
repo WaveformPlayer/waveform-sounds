@@ -1,0 +1,13 @@
+{
+  // What esbuild reads when it bundles the .ts sources (every JS build script
+  // passes --tsconfig=tsconfig.esbuild.json). Not tsconfig.json, because its
+  // `strict` implies `alwaysStrict`, and esbuild then prepends "use strict" to
+  // the IIFE and CJS bundles: 0.3.1 shipped them sloppy-mode, and 2.0 ships
+  // the same code. TypeScript 7 no longer accepts `alwaysStrict: false`, so
+  // it can't be switched off there.
+  "compilerOptions": {
+    "alwaysStrict": false,
+    "useDefineForClassFields": true,
+    "verbatimModuleSyntax": true
+  }
+}
