@@ -51,7 +51,7 @@
     width: 1px; height: 1px;
     margin: -1px; padding: 0;
     overflow: hidden;
-    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
 }
@@ -92,9 +92,11 @@
 }
 .ws-search .ws-icon { color: var(--ws-muted); }
 .ws-search-input::placeholder { color: var(--ws-muted); }
+/* WebKit/Blink's clear button, redrawn in the text colour. The mask stays
+ * prefixed: unprefixed `mask` is Chrome/Edge 120+. */
 .ws-search-input::-webkit-search-cancel-button,
 .ws-menu-search::-webkit-search-cancel-button {
-    -webkit-appearance: none;
+    appearance: none;
     width: 0.9em;
     height: 0.9em;
     background: currentColor;
@@ -229,12 +231,13 @@
     margin: 0;
     background: none;
     pointer-events: none;
-    -webkit-appearance: none;
     appearance: none;
 }
 /* When the handles meet, the lower one goes on top (it's the one that can
  * still move: left). */
 .ws-range.is-min-top [data-ws-bpm-min] { z-index: 2; }
+/* The track and thumb pseudo-elements are per engine, each in its own
+ * rule: a browser drops a whole selector list over one it doesn't know. */
 .ws-range-input::-webkit-slider-runnable-track { height: 100%; background: none; }
 .ws-range-input::-moz-range-track { background: none; }
 .ws-range-input::-webkit-slider-thumb {
@@ -247,7 +250,6 @@
     box-shadow: 0 0 0 1px var(--ws-border);
     cursor: grab;
     pointer-events: auto;
-    -webkit-appearance: none;
     appearance: none;
 }
 .ws-range-input::-moz-range-thumb {
