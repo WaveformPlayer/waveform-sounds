@@ -29,6 +29,18 @@ import '@arraypress/waveform-sounds/styles.css';
 <div data-waveform-sounds data-manifest="/sounds.json"></div>
 ```
 
+Or as a custom element — every `data-*` option works as an attribute,
+with or without the prefix, and server-rendered markup inside it is
+adopted:
+
+```html
+<waveform-sounds manifest="/sounds.json" page-size="20"></waveform-sounds>
+```
+
+The default import registers it; with `/no-autoinit` (or
+`data-waveform-autoinit="false"`), call `defineWaveformSoundsElement()` —
+`WaveformSounds.defineElement()` from a `<script>` page.
+
 Generate the manifest from a folder of previews (BPM and key are read from
 file names like `Bass_Loop_04_128_Fmin.wav`; the type is the sub-folder).
 `--base-url` is the public URL the folder is served at:
