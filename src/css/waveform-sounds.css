@@ -487,5 +487,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ws-row, .ws-chip, .ws-play { transition: none; }
+    .ws-row, .ws-chip, .ws-play, .ws-seg-btn, .ws-download, .ws-menu-chevron { transition: none; }
 }
