@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   // node_modules/@arraypress/text/src/index.js
   var HTML_ESCAPES = Object.freeze({
@@ -9,13 +10,31 @@
   });
   function escapeHtml(input) {
     if (input === null || input === void 0) return "";
-    return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+    return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[
+      /** @type {keyof typeof HTML_ESCAPES} */
+      c
+    ]);
   }
-  var NOT_A_WORD = /[^\p{L}\p{N}]+/u;
-  var COMBINING_MARKS = /\p{Mn}+/gu;
+  var NOT_A_WORD = /[^\p{L}\p{N}\p{M}]+/u;
+  var COMBINING_MARK = /\p{Mn}/gu;
+  var ACCENTS = Object.freeze([
+    [768, 879],
+    [1425, 1479],
+    [1552, 1562],
+    [1611, 1631],
+    [1648, 1648],
+    [6832, 6911],
+    [7616, 7679],
+    [8400, 8447],
+    [65056, 65071]
+  ]);
+  function isAccent(mark) {
+    const point = mark.codePointAt(0) ?? 0;
+    return ACCENTS.some(([from, to]) => point >= from && point <= to);
+  }
   function fold(text2) {
     if (!text2 || typeof text2 !== "string") return "";
-    return text2.toLowerCase().normalize("NFD").replace(COMBINING_MARKS, "");
+    return text2.toLowerCase().normalize("NFD").replace(COMBINING_MARK, (mark) => isAccent(mark) ? "" : mark).normalize("NFC");
   }
   function words(text2) {
     return fold(text2).split(NOT_A_WORD).filter((word) => word !== "");
@@ -53,7 +72,7 @@
     });
   }
 
-  // src/js/data/sounds.js
+  // src/js/data/sounds.ts
   function encodePeaks(peaks) {
     if (!Array.isArray(peaks)) return "";
     let out = "";
@@ -229,7 +248,7 @@
     return list.map((x) => x.s);
   }
 
-  // src/js/dom/draw.js
+  // src/js/dom/draw.ts
   function fitCanvas(canvas) {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
@@ -296,7 +315,7 @@
     }
   }
 
-  // src/js/core/engine.js
+  // src/js/core/engine.ts
   var CALLBACKS = ["onLoad", "onPlay", "onPause", "onEnd", "onTimeUpdate", "onError"];
   function engineOptions(user, layout, handlers) {
     const site = user || {};
@@ -321,7 +340,7 @@
     return layout === "strip" && sound.waveform || sound.peaks || null;
   }
 
-  // src/js/dom/menus.js
+  // src/js/dom/menus.ts
   function optionMatches(label, query) {
     const q = fold(String(query ?? "")).trim();
     return !q || fold(String(label ?? "")).includes(q);
@@ -357,8 +376,8 @@
     }
     /**
      * Wire every menu, plus closing on an outside press or focus leaving.
-     * @param {AbortSignal} signal
-     * @private
+     * @param signal
+     * @internal
      */
     _bind(signal) {
       const sig = { signal };
@@ -400,7 +419,7 @@
      * focus in its search field or list. Flips to open over the end edge
      * when it would overflow the list.
      *
-     * @param {HTMLElement} menu
+     * @param menu
      */
     open(menu) {
       if (this.openMenu && this.openMenu !== menu) this.close(false);
@@ -420,7 +439,7 @@
     /**
      * Close the open menu, if any.
      *
-     * @param {boolean} focusButton - Return focus to its button (after a
+     * @param focusButton - Return focus to its button (after a
      *   pick or Esc; not after a click elsewhere).
      */
     close(focusButton) {
@@ -436,8 +455,8 @@
      * Show `value` as a menu's choice (button text + `aria-selected`). Used
      * after a pick and when the filter is changed from code.
      *
-     * @param {string} name - 'type' | 'key' | 'sort'.
-     * @param {string} value
+     * @param name - 'type' | 'key' | 'sort'.
+     * @param value
      */
     setValue(name, value) {
       const menu = this.menus[name];
@@ -455,7 +474,7 @@
     /**
      * Narrow a menu to the options matching the search, and make the first
      * match active.
-     * @private
+     * @internal
      */
     _filter(menu, query) {
       const p = partsOf(menu);
@@ -470,7 +489,7 @@
     /**
      * Mark one option active (`aria-activedescendant`) and scroll it into
      * the list's view.
-     * @private
+     * @internal
      */
     _activate(menu, opt) {
       const p = partsOf(menu);
@@ -486,7 +505,7 @@
     }
     /**
      * Keys inside an open menu.
-     * @private
+     * @internal
      */
     _onKey(e, name, menu) {
       const p = partsOf(menu);
@@ -522,7 +541,7 @@
     }
     /**
      * A value was chosen: close, then report it.
-     * @private
+     * @internal
      */
     _pick(name, value) {
       this.close(true);
@@ -530,7 +549,7 @@
     }
   };
 
-  // src/js/shared/utils.js
+  // src/js/shared/utils.ts
   var LOG = "[WaveformSounds]";
   function clamp(value, min = 0, max = 1) {
     return Math.min(Math.max(value, min), max);
@@ -552,7 +571,7 @@
     return hash;
   }
 
-  // src/js/data/navigation.js
+  // src/js/data/navigation.ts
   var SEEK_STEP = 0.1;
   function rowTarget(key, at, count) {
     if (!count) return null;
@@ -581,7 +600,7 @@
     return pos >= limit ? pos + 1 : limit;
   }
 
-  // src/js/data/bpm.js
+  // src/js/data/bpm.ts
   function bpmFilterFromRange(lo, hi, extent) {
     const a = Math.min(lo, hi), b = Math.max(lo, hi);
     return {
@@ -606,7 +625,7 @@
     return filter.bpmMin != null && filter.bpmMin !== "" || filter.bpmMax != null && filter.bpmMax !== "";
   }
 
-  // src/js/render/strings.js
+  // src/js/render/strings.ts
   var DEFAULT_STRINGS = {
     search: "Search sounds",
     searchPlaceholder: "Search sounds\u2026",
@@ -667,7 +686,7 @@
     return total === 1 ? strings.countOne : fill(strings.count, { count: total });
   }
 
-  // src/js/render/options.js
+  // src/js/render/options.ts
   var FILTERS = ["type", "key", "bpm", "loop"];
   var COLUMNS = ["type", "bpm", "key", "duration"];
   var RENDER_DEFAULTS = {
@@ -709,7 +728,7 @@
     };
   }
 
-  // src/js/core/options.js
+  // src/js/core/options.ts
   var DEFAULT_OPTIONS = {
     ...RENDER_DEFAULTS,
     sounds: null,
@@ -722,6 +741,8 @@
     loop: null,
     autoAdvance: false,
     arrowAudition: true,
+    // null is "unset" (the container's id, else a hash); the public type,
+    // unchanged from 0.3.1, has no null, hence the cast (it emits nothing).
     idPrefix: null,
     urlState: false,
     playerOptions: null,
@@ -799,7 +820,7 @@
     return out;
   }
 
-  // src/js/render/html.js
+  // src/js/render/html.ts
   var VOID = /* @__PURE__ */ new Set(["input", "br", "img"]);
   function text(value) {
     return escapeHtml(value ?? "");
@@ -818,7 +839,7 @@
     return open + children.flat(Infinity).filter((c) => c != null && c !== false && c !== "").join("") + `</${tag}>`;
   }
 
-  // src/js/render/icons.js
+  // src/js/render/icons.ts
   function icon(path, extraClass = "") {
     const cls = extraClass ? `ws-icon ${extraClass}` : "ws-icon";
     return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
@@ -833,7 +854,7 @@
     loop: icon("M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z")
   };
 
-  // src/js/render/markup.js
+  // src/js/render/markup.ts
   function idBase(sounds) {
     const signature = [sounds.length, ...sounds.map((s) => s.url)].join("|");
     return `ws${hashString(signature).toString(36)}`;
@@ -1099,7 +1120,7 @@
     return h("div", { class: cls, "data-waveform-sounds": true, "data-player": o.player }, renderSounds(sounds, options));
   }
 
-  // src/js/dom/rows.js
+  // src/js/dom/rows.ts
   var ROW = ":scope > [data-ws-index]";
   function readRows(list) {
     const rows = [...list.querySelectorAll(ROW)].sort((a, b) => Number(a.dataset.wsIndex) - Number(b.dataset.wsIndex));
@@ -1145,7 +1166,7 @@
     list.appendChild(frag);
   }
 
-  // src/js/dom/colors.js
+  // src/js/dom/colors.ts
   function parseAlpha(color) {
     const c = String(color ?? "").trim();
     if (!c || c === "transparent") return 0;
@@ -1172,7 +1193,7 @@
     return color;
   }
 
-  // src/js/data/url-state.js
+  // src/js/data/url-state.ts
   function urlKeys(urlState) {
     if (!urlState) return null;
     const p = typeof urlState === "string" ? `${urlState}-` : "";
@@ -1217,17 +1238,17 @@
     return url.href;
   }
 
-  // src/js/core/WaveformSounds.js
+  // src/js/core/WaveformSounds.ts
   var NO_FILTER = Object.freeze({ query: "", type: "", key: "", bpmMin: "", bpmMax: "", loop: "" });
   var SEARCH_DELAY = 120;
   var BPM_DELAY = 200;
   var URL_DELAY = 250;
   var WaveformSounds = class _WaveformSounds {
-    /** @type {Map<Element, WaveformSounds>} */
+    /** Every live instance, by its element. */
     static instances = /* @__PURE__ */ new Map();
     /**
      * @param {HTMLElement|string} container - The element (or a selector).
-     * @param {import('../../../index').WaveformSoundsOptions} [options]
+     * @param {WaveformSoundsOptions} [options]
      */
     constructor(container, options = {}) {
       const el = typeof container === "string" ? document.querySelector(container) : container;
@@ -1265,7 +1286,7 @@
     /**
      * Adopt server-rendered markup or render it (from `sounds` or a fetched
      * manifest), then wire everything up.
-     * @private
+     * @internal
      */
     async _init() {
       const el = this.container;
@@ -1300,8 +1321,8 @@
     }
     /**
      * The sounds from the `sounds` option, else the `manifest` URL.
-     * @returns {Promise<import('../../../index').Sound[]>}
-     * @private
+     * @returns 
+     * @internal
      */
     async _loadSounds() {
       if (this.options.sounds || !this.options.manifest) return normalizeSounds(this.options.sounds || []);
@@ -1311,7 +1332,7 @@
     }
     /**
      * Look up the elements the runtime drives.
-     * @private
+     * @internal
      */
     _cacheRefs() {
       const q = (sel) => this.container.querySelector(sel);
@@ -1338,7 +1359,7 @@
     /**
      * Every listener. All are removed by `destroy()` through one
      * AbortController.
-     * @private
+     * @internal
      */
     _bind() {
       const sig = { signal: this._ctl.signal };
@@ -1390,7 +1411,7 @@
     /**
      * Clicks: type chips, loops or one-shots, Show more, Clear, Loop, a touch tap on a waveform
      * (seek), and anywhere else on a row (play/pause).
-     * @private
+     * @internal
      */
     _onClick(e) {
       const t = e.target;
@@ -1429,7 +1450,7 @@
     /**
      * Mouse and pen seek on PRESS, like every scrubber. Remembers the
      * pointer type for the click that follows.
-     * @private
+     * @internal
      */
     _onPointerDown(e) {
       this._lastPointer = e.pointerType;
@@ -1440,7 +1461,7 @@
     }
     /**
      * Seek (or start) a row's sound where its waveform was pressed.
-     * @private
+     * @internal
      */
     _seekAt(wave, clientX) {
       const row = wave.closest("[data-ws-index]");
@@ -1450,7 +1471,7 @@
     /**
      * Keys on the list: `/` focuses search; ↑/↓/Home/End move between rows
      * (auditioning while something plays); ←/→ seek the playing row.
-     * @private
+     * @internal
      */
     _onKey(e) {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -1482,7 +1503,7 @@
     }
     /**
      * Focus a row's play button.
-     * @private
+     * @internal
      */
     _focusRow(row) {
       row?.querySelector(".ws-play")?.focus();
@@ -1493,7 +1514,7 @@
      * on the title or waveform left focus on <body>, and Safari never
      * focuses a clicked button). No scroll jump, and no focus ring: the
      * browser shows none for a focus that follows a pointer.
-     * @private
+     * @internal
      */
     _focusRowQuietly(row) {
       const btn = row?.querySelector(".ws-play");
@@ -1503,7 +1524,7 @@
     /**
      * Draw row canvases as they scroll into view; redraw on resize and on
      * theme flips (the canvas can't follow CSS by itself).
-     * @private
+     * @internal
      */
     _observe() {
       if (this.render.player !== "inline" || typeof window === "undefined") return;
@@ -1547,7 +1568,7 @@
     /**
      * Resolve the canvas colours (options, else the CSS custom properties)
      * and keep `--ws-surface` current unless the site set it.
-     * @private
+     * @internal
      */
     _resolveColors() {
       if (this._autoSurface || !getComputedStyle(this.container).getPropertyValue("--ws-surface").trim()) {
@@ -1562,7 +1583,7 @@
     }
     /**
      * Draw one row's waveform (only once it has been on screen).
-     * @private
+     * @internal
      */
     _drawRow(index) {
       if (this.render.player !== "inline" || index == null || !this._drawn?.has(index)) return;
@@ -1580,7 +1601,7 @@
     }
     /**
      * Redraw every row drawn so far.
-     * @private
+     * @internal
      */
     _redrawAll() {
       this._drawn?.forEach((i) => this._drawRow(i));
@@ -1588,7 +1609,7 @@
     /* ── Filters in the address ───────────────────────────────────────── */
     /**
      * Apply the filter and sort from the address (`urlState`).
-     * @private
+     * @internal
      */
     _readUrl() {
       const keys = urlKeys(this.options.urlState);
@@ -1603,7 +1624,7 @@
     /**
      * Rewrite the address shortly after a change (replaceState: no history
      * entries).
-     * @private
+     * @internal
      */
     _queueUrl() {
       const keys = urlKeys(this.options.urlState);
@@ -1620,12 +1641,6 @@
     get visible() {
       return sortSounds(this.sounds.filter((s) => matches(s, this.filter)), this.sortBy);
     }
-    /**
-     * Change the filter (merged into the current one) and re-apply. Back to
-     * the first page.
-     *
-     * @param {Partial<import('../../../index').SoundsFilter>} patch
-     */
     setFilter(patch = {}) {
       this.filter = { ...this.filter, ...patch };
       this.limit = this._pageSize();
@@ -1636,7 +1651,7 @@
     clearFilters() {
       this.setFilter(NO_FILTER);
     }
-    /** @param {import('../../../index').SoundsSort} by */
+    /** @param by */
     setSort(by) {
       this._sortSet = true;
       this.sortBy = SORTS.includes(by) ? by : "default";
@@ -1651,7 +1666,7 @@
     }
     /**
      * Rows per page (Infinity when paging is off).
-     * @private
+     * @internal
      */
     _pageSize() {
       return this.render.pageSize > 0 ? this.render.pageSize : Infinity;
@@ -1659,7 +1674,7 @@
     /**
      * Show the current filter and sort in the controls (they can be set from
      * code or the address, not only by the controls themselves).
-     * @private
+     * @internal
      */
     _syncControls() {
       const $ = this.$, f = this.filter;
@@ -1681,7 +1696,7 @@
      * Show a BPM filter in its menu: the button label, the panel's readout,
      * the filled part of the track, and which handle sits on top (the one
      * that can still move, when they meet).
-     * @private
+     * @internal
      */
     _showBpm(f) {
       const $ = this.$, extent = this._bpmExtent;
@@ -1698,9 +1713,9 @@
      * Lay the rows out for the current filter, sort and page: order, hide,
      * "Show more", the empty state and the count. Then report it.
      *
-     * @param {{resort: boolean}} opts - Reorder the rows even if the sort
+     * @param opts - Reorder the rows even if the sort
      *   hasn't changed.
-     * @private
+     * @internal
      */
     _apply({ resort }) {
       const $ = this.$;
@@ -1730,9 +1745,9 @@
      * Resolve an index, id or sound to an index in `this.sounds`. No
      * target means the current sound, else the first visible one.
      *
-     * @param {number|string|Object} [target]
-     * @returns {number|null}
-     * @private
+     * @param target
+     * @returns 
+     * @internal
      */
     _indexOf(target) {
       if (target == null) return this.currentIndex ?? (this.visible[0] ? this.sounds.indexOf(this.visible[0]) : null);
@@ -1742,8 +1757,8 @@
     }
     /**
      * The WaveformPlayer class: `playerClass`, else the page's global.
-     * @returns {Function|null}
-     * @private
+     * @returns 
+     * @internal
      */
     _playerClass() {
       return this.options.playerClass || (typeof window !== "undefined" ? window.WaveformPlayer : null) || null;
@@ -1754,8 +1769,8 @@
      * which would strip `ws-engine--strip` (and with it the docked styling).
      * Made here rather than in the markup so server-rendered HTML from any
      * version works.
-     * @returns {HTMLElement}
-     * @private
+     * @returns 
+     * @internal
      */
     _engineMount() {
       const slot = this.$.engine;
@@ -1769,8 +1784,8 @@
     }
     /**
      * Build the engine once (it holds no audio until a play).
-     * @returns {Object|null} The engine, or null without a player class.
-     * @private
+     * @returns The engine, or null without a player class.
+     * @internal
      */
     _ensureEngine() {
       if (this.engine) return this.engine;
@@ -1793,8 +1808,8 @@
      * Play a sound (by index, id or sound object), or resume the current
      * one. Before the list is built the call waits for it.
      *
-     * @param {number|string|Object} [target]
-     * @param {{at?: number}} [opts] - `at`: start position 0..1.
+     * @param target
+     * @param opts - `at`: start position 0..1.
      */
     play(target, opts = {}) {
       if (!this.$) {
@@ -1828,7 +1843,7 @@
      * (and its play button plays that sound) instead of an empty frame.
      * Only metadata is fetched — the browser default for any `<audio>`.
      * The row isn't marked current until it plays.
-     * @private
+     * @internal
      */
     _cueFirst() {
       const engine = this.engine;
@@ -1847,7 +1862,7 @@
     }
     /**
      * The current sound plays/pauses; another sound starts.
-     * @param {number|string|Object} [target]
+     * @param target
      */
     toggle(target) {
       const index = this._indexOf(target);
@@ -1867,9 +1882,9 @@
      * Play the visible sound `dir` places away, revealing it if it's past
      * the current page.
      *
-     * @param {1|-1} dir
-     * @returns {boolean} Whether there was one.
-     * @private
+     * @param dir
+     * @returns Whether there was one.
+     * @internal
      */
     _step(dir) {
       const shown = this.visible;
@@ -1888,7 +1903,7 @@
      * Loop the current sound (auditioning a loop is the common case). When
      * the list marks its loops (`loop: true` on any sound), only those
      * repeat: a one-shot always plays once.
-     * @param {boolean} on
+     * @param on
      */
     setLoop(on) {
       this._loopSet = true;
@@ -1897,7 +1912,7 @@
     }
     /**
      * Apply the loop state to the toggle and the engine.
-     * @private
+     * @internal
      */
     _setLoop(on) {
       this.$?.loop?.setAttribute("aria-pressed", String(on));
@@ -1906,7 +1921,7 @@
     /**
      * Should the current sound repeat? The Loop toggle is on, and either
      * the list doesn't say which sounds are loops or this one is.
-     * @private
+     * @internal
      */
     _repeats() {
       if (!this.loop) return false;
@@ -1916,7 +1931,7 @@
     /**
      * Seek a row's sound to `fraction`; a row that isn't current starts
      * there. Before the duration is known the seek waits for it.
-     * @private
+     * @internal
      */
     _seekRow(index, fraction) {
       if (index !== this.currentIndex || !this.engine) {
@@ -1936,7 +1951,7 @@
     /**
      * The engine loaded a sound: apply the loop, borrow decoded peaks for a
      * row that had none, and land a pending seek.
-     * @private
+     * @internal
      */
     _onEngineLoad() {
       if (this.engine?.audio) this.engine.audio.loop = this._repeats();
@@ -1954,7 +1969,7 @@
     }
     /**
      * Playback progress: repaint the current row, once per frame.
-     * @private
+     * @internal
      */
     _onTime(time, duration) {
       if (this.currentIndex == null || !duration) return;
@@ -1974,7 +1989,7 @@
     }
     /**
      * A sound finished: report it, then auto-advance or settle.
-     * @private
+     * @internal
      */
     _onEnd() {
       const sound = this.sounds[this.currentIndex];
@@ -1986,7 +2001,7 @@
     }
     /**
      * A sound failed to load or play: mark its row and report it.
-     * @private
+     * @internal
      */
     _onEngineError(err) {
       this.rows[this.currentIndex]?.classList.add("is-error");
@@ -1997,7 +2012,7 @@
      * Record play/pause and repaint. Events fire only on a real change: at a
      * natural end the browser fires `pause` then `ended`, and `_onEnd()`
      * also settles the state — one pause event, not two.
-     * @private
+     * @internal
      */
     _setPlaying(on) {
       const changed = this.playing !== on;
@@ -2015,7 +2030,7 @@
     /* ── Row painting ─────────────────────────────────────────────────── */
     /**
      * A row's state classes, play-button label and waveform.
-     * @private
+     * @internal
      */
     _paintRow(index) {
       const row = this.rows[index];
@@ -2039,7 +2054,7 @@
     /* ── Events & lifecycle ──────────────────────────────────────────── */
     /**
      * Emit a `waveformsounds:<name>` event carrying this instance.
-     * @private
+     * @internal
      */
     _emit(name, detail = {}) {
       emit(this.container, name, { ...detail, instance: this });
@@ -2079,8 +2094,8 @@
     /**
      * Initialise every `[data-waveform-sounds]` under `root` that isn't yet.
      *
-     * @param {ParentNode} [root=document]
-     * @returns {WaveformSounds[]} The new instances.
+     * @param root
+     * @returns The new instances.
      */
     static init(root = document) {
       if (typeof document === "undefined") return [];
@@ -2099,8 +2114,8 @@
     }
     /**
      * The instance on an element (or selector), if any.
-     * @param {Element|string} el
-     * @returns {WaveformSounds|null}
+     * @param el
+     * @returns 
      */
     static getInstance(el) {
       const node = typeof el === "string" ? document.querySelector(el) : el;
@@ -2113,14 +2128,14 @@
     }
   };
 
-  // src/js/entry.js
+  // src/js/entry.ts
   WaveformSounds.utils = { encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds };
   WaveformSounds.DEFAULT_OPTIONS = DEFAULT_OPTIONS;
   WaveformSounds.DEFAULT_STRINGS = DEFAULT_STRINGS;
   if (typeof window !== "undefined") window.WaveformSounds = WaveformSounds;
   var entry_default = WaveformSounds;
 
-  // src/js/index.js
+  // src/js/index.ts
   var index_default = entry_default;
   if (typeof document !== "undefined" && document.documentElement?.dataset?.waveformAutoinit !== "false") {
     if (document.readyState === "loading") {

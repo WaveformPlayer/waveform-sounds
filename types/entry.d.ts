@@ -19,3 +19,4 @@ declare global {
 export default WaveformSounds;
 export { WaveformSounds, DEFAULT_OPTIONS, DEFAULT_STRINGS, encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds, renderSoundsElement, };
 export type { SoundInput, Sound, SoundsManifest, SoundsFilter, SoundsLoopFilter, SoundsSort, SoundsLayout, SoundsFilterControl, SoundsColumn, WaveformSoundsStrings, WaveformSoundsOptions, WaveformSoundsEventMap, } from './types.js';
+//# sourceMappingURL=entry.d.ts.map

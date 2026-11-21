@@ -13,3 +13,4 @@
 import WaveformSounds from './entry.js';
 export * from './entry.js';
 export default WaveformSounds;
+//# sourceMappingURL=index.d.ts.map

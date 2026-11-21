@@ -33,3 +33,4 @@ export declare function enginePeaks(sound: {
     peaks: number[] | null;
     waveform: string | null;
 }, layout: 'inline' | 'strip'): number[] | string | null;
+//# sourceMappingURL=engine.d.ts.map

@@ -14,3 +14,4 @@ export declare const ICONS: {
     download: string;
     loop: string;
 };
+//# sourceMappingURL=icons.d.ts.map

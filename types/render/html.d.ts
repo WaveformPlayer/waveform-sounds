@@ -36,3 +36,4 @@ export declare function attrs(map?: HtmlAttrs): string;
  * @returns
  */
 export declare function h(tag: string, attributes?: HtmlAttrs, ...children: HtmlChild[]): string;
+//# sourceMappingURL=html.d.ts.map

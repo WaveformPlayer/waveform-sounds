@@ -39,3 +39,4 @@ export declare function visibleRows(list: HTMLElement): HTMLElement[];
  * @param rows - In the order to show them.
  */
 export declare function orderRows(list: HTMLElement, rows: HTMLElement[]): void;
+//# sourceMappingURL=rows.d.ts.map

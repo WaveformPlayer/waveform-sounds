@@ -164,3 +164,4 @@ export declare function availableSorts(sorts: string[], f: ReturnType<typeof fac
  * @returns
  */
 export declare function sortSounds(sounds: Sound[], by?: SoundsSort): Sound[];
+//# sourceMappingURL=sounds.d.ts.map

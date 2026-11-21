@@ -248,3 +248,4 @@ export interface WaveformSoundsEventMap {
         instance: WaveformSounds;
     }>;
 }
+//# sourceMappingURL=types.d.ts.map

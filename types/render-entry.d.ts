@@ -5,3 +5,4 @@
 export { renderSounds, renderSoundsElement, DEFAULT_STRINGS, escapeHtml } from './render/markup.js';
 export { normalizeSounds, parseManifest, encodePeaks, decodePeaks, normalizeKey, facets, formatDuration } from './data/sounds.js';
 export type { SoundInput, Sound, SoundsManifest, WaveformSoundsOptions, WaveformSoundsStrings } from './types.js';
+//# sourceMappingURL=render-entry.d.ts.map

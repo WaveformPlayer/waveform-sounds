@@ -74,3 +74,4 @@ export declare class Menus {
      */
     setValue(name: string, value: string): void;
 }
+//# sourceMappingURL=menus.d.ts.map

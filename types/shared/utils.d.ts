@@ -54,3 +54,4 @@ export declare function emit(target: EventTarget, name: string, detail: Record<s
  * @returns An unsigned 32-bit integer.
  */
 export declare function hashString(str: string): number;
+//# sourceMappingURL=utils.d.ts.map

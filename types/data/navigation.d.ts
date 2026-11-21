@@ -50,3 +50,4 @@ export declare function pageWindow<T>(shown: T[], limit: number): {
  * @returns
  */
 export declare function limitToReveal(limit: number, pos: number): number;
+//# sourceMappingURL=navigation.d.ts.map

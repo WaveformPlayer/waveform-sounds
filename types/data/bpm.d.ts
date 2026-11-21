@@ -64,3 +64,4 @@ export declare function hasBpmFilter(filter: {
     bpmMin?: string | number;
     bpmMax?: string | number;
 }): boolean;
+//# sourceMappingURL=bpm.d.ts.map

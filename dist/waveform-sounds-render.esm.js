@@ -8,10 +8,24 @@ var HTML_ESCAPES = Object.freeze({
 });
 function escapeHtml(input) {
   if (input === null || input === void 0) return "";
-  return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+  return String(input).replace(/[&<>"']/g, (c) => HTML_ESCAPES[
+    /** @type {keyof typeof HTML_ESCAPES} */
+    c
+  ]);
 }
+var ACCENTS = Object.freeze([
+  [768, 879],
+  [1425, 1479],
+  [1552, 1562],
+  [1611, 1631],
+  [1648, 1648],
+  [6832, 6911],
+  [7616, 7679],
+  [8400, 8447],
+  [65056, 65071]
+]);
 
-// src/js/data/sounds.js
+// src/js/data/sounds.ts
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
   let out = "";
@@ -154,7 +168,7 @@ function availableSorts(sorts, f) {
   return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
 }
 
-// src/js/render/html.js
+// src/js/render/html.ts
 var VOID = /* @__PURE__ */ new Set(["input", "br", "img"]);
 function text(value) {
   return escapeHtml(value ?? "");
@@ -173,7 +187,7 @@ function h(tag, attributes = {}, ...children) {
   return open + children.flat(Infinity).filter((c) => c != null && c !== false && c !== "").join("") + `</${tag}>`;
 }
 
-// src/js/render/icons.js
+// src/js/render/icons.ts
 function icon(path, extraClass = "") {
   const cls = extraClass ? `ws-icon ${extraClass}` : "ws-icon";
   return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
@@ -188,7 +202,7 @@ var ICONS = {
   loop: icon("M17 4l3 3-3 3V8H8a3 3 0 0 0-3 3v1H3v-1a5 5 0 0 1 5-5h9V4zM7 20l-3-3 3-3v2h9a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5H7v2z")
 };
 
-// src/js/data/bpm.js
+// src/js/data/bpm.ts
 function bpmRangeFromFilter(filter, extent) {
   const read = (v, fallback) => {
     const n = Number(v);
@@ -202,7 +216,7 @@ function hasBpmFilter(filter) {
   return filter.bpmMin != null && filter.bpmMin !== "" || filter.bpmMax != null && filter.bpmMax !== "";
 }
 
-// src/js/render/strings.js
+// src/js/render/strings.ts
 var DEFAULT_STRINGS = {
   search: "Search sounds",
   searchPlaceholder: "Search sounds\u2026",
@@ -263,7 +277,7 @@ function countText(shown, total, strings = DEFAULT_STRINGS) {
   return total === 1 ? strings.countOne : fill(strings.count, { count: total });
 }
 
-// src/js/render/options.js
+// src/js/render/options.ts
 var FILTERS = ["type", "key", "bpm", "loop"];
 var COLUMNS = ["type", "bpm", "key", "duration"];
 var RENDER_DEFAULTS = {
@@ -305,14 +319,14 @@ function resolveRenderOptions(options = {}) {
   };
 }
 
-// src/js/shared/utils.js
+// src/js/shared/utils.ts
 function hashString(str) {
   let hash = 5381;
   for (const char of str) hash = hash * 33 + char.codePointAt(0) >>> 0;
   return hash;
 }
 
-// src/js/render/markup.js
+// src/js/render/markup.ts
 function idBase(sounds) {
   const signature = [sounds.length, ...sounds.map((s) => s.url)].join("|");
   return `ws${hashString(signature).toString(36)}`;

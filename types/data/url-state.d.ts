@@ -80,3 +80,4 @@ export declare function readUrlState(search: string, keys: ReturnType<typeof url
  * @returns The new href (equal to `href` when nothing changed).
  */
 export declare function writeUrlState(href: string, keys: ReturnType<typeof urlKeys>, filter: SoundsFilter, sort: string, defaultSort: string): string;
+//# sourceMappingURL=url-state.d.ts.map

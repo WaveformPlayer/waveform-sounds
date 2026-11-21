@@ -71,3 +71,4 @@ export declare function readDataOptions(el: HTMLElement): Record<string, any>;
  * @returns
  */
 export declare function mergeOptions(...sources: (Record<string, any> | null | undefined)[]): Record<string, any>;
+//# sourceMappingURL=options.d.ts.map

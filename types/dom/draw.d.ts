@@ -70,3 +70,4 @@ export declare function drawRowWaveform(canvas: HTMLCanvasElement, peaks: number
     barWidth: number;
     barGap: number;
 }): void;
+//# sourceMappingURL=draw.d.ts.map

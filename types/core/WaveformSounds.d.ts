@@ -142,3 +142,4 @@ export declare class WaveformSounds {
      *  client-side navigation). */
     static prune(): void;
 }
+//# sourceMappingURL=WaveformSounds.d.ts.map

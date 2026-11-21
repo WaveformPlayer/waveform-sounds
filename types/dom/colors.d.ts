@@ -32,3 +32,4 @@ export declare function pageSurface(el: Element, minAlpha?: number): string;
  * @returns The computed colour.
  */
 export declare function resolveCssColor(container: Element, value: string): string;
+//# sourceMappingURL=colors.d.ts.map

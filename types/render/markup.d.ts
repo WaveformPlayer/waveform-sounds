@@ -129,3 +129,4 @@ export declare function renderSounds(sounds: SoundInput[], options?: WaveformSou
  * @returns
  */
 export declare function renderSoundsElement(sounds: SoundInput[], options?: WaveformSoundsOptions, className?: string): string;
+//# sourceMappingURL=markup.d.ts.map

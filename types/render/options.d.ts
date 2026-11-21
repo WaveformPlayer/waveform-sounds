@@ -53,3 +53,4 @@ export declare function wholeNumber(value: unknown, fallback: number): number;
  * @returns
  */
 export declare function resolveRenderOptions(options?: WaveformSoundsOptions): RenderOptions;
+//# sourceMappingURL=options.d.ts.map

@@ -43,3 +43,4 @@ export declare function bpmLabel(filter: {
  * @returns
  */
 export declare function countText(shown: number, total: number, strings?: typeof DEFAULT_STRINGS): string;
+//# sourceMappingURL=strings.d.ts.map
