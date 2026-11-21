@@ -86,11 +86,11 @@
     "node": ">=22.12"
   },
   "peerDependencies": {
-    "@arraypress/waveform-player": "^1.24.5"
+    "@arraypress/waveform-player": "^2.0.0"
   },
   "devDependencies": {
     "@arraypress/text": "^2.2.0",
-    "@arraypress/waveform-player": "^1.30.2",
+    "@arraypress/waveform-player": "file:../waveform-player",
     "@biomejs/biome": "^2.6.8",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.1",
