@@ -189,6 +189,14 @@ export interface WaveformSoundsOptions {
     pageSize?: number;
     /** Columns after the title, in order. Default all four. */
     columns?: SoundsColumn[];
+    /** Enharmonic keys are one key: A#m and Bbm (C# and Db, …) are one
+     *  entry in the key menu, a filter on either finds both, and the address
+     *  accepts either spelling. The entry shows the spelling the list uses
+     *  most (a tie: the conventional one — Db, Eb, F#, Ab, Bb major; C#m,
+     *  Ebm, F#m, G#m, Bbm minor); each row still shows its key as written.
+     *  `false` keeps every spelling apart. As markup:
+     *  `data-merge-enharmonic-keys="false"`. Default true. Since 2.2.0. */
+    mergeEnharmonicKeys?: boolean;
     /** Row waveform style. Default `'mirror'`. */
     waveformStyle?: 'mirror' | 'bars';
     /** Row waveform colour. Default: CSS `--ws-wave-color`. */

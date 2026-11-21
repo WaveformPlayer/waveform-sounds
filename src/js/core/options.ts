@@ -132,6 +132,7 @@ export function readDataOptions(el: HTMLElement): Record<string, any> {
         pageSize: parseNumber(d.pageSize),
         maxTypeChips: parseNumber(d.maxTypeChips),
         columns: parseList(d.columns),
+        mergeEnharmonicKeys: parseBool(d.mergeEnharmonicKeys),
         waveformStyle: d.waveformStyle || undefined,
         waveformColor: d.waveformColor || undefined,
         progressColor: d.progressColor || undefined,

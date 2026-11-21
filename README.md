@@ -56,6 +56,7 @@ npx @arraypress/waveform-gen ./public/previews/ --recursive \
 
 `player` (`'inline'` | `'strip'`), `search`, `filters`, `sorts`,
 `loopToggle`, `showCount`, `pageSize` (50), `maxTypeChips` (10), `menuSearch` (8), `columns`,
+`mergeEnharmonicKeys` (true),
 `waveformStyle`, `waveformColor`, `progressColor`, `barWidth`, `barGap`,
 `loop`, `autoAdvance`, `arrowAudition`, `playerOptions`, `strings`, and the
 callbacks `onReady` / `onPlay` / `onPause` / `onEnd` / `onFilter` / `onError`.
@@ -101,6 +102,17 @@ only loops: a one-shot always plays once (turn it off to hear loops once).
 A list that marks nothing works as before.
 `waveform-gen --manifest` sets `loop: true` for files whose folder or name
 contains the word "loop".
+
+## Keys
+
+Enharmonic keys are one key: a pack that writes both A#m and Bbm (or C#
+and Db) gets one key-menu entry, a filter on either spelling finds both,
+and `?key=` accepts either. The entry shows the spelling the pack uses
+most; a tie goes to the conventional one (the key signature with the
+fewest accidentals — Db, Eb, F#, Ab, Bb, B major; C#m, Ebm, F#m, G#m, Bbm
+minor). Each row still shows its own key as written.
+`mergeEnharmonicKeys: false` (`data-merge-enharmonic-keys="false"`) keeps
+every spelling apart.
 
 ## Download links
 

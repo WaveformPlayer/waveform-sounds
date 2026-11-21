@@ -201,7 +201,8 @@ export class Menus {
         const p = partsOf(menu);
         let first: HTMLElement | null = null;
         for (const opt of optionsOf(p)) {
-            opt.hidden = !optionMatches(opt.textContent, query);
+            // A merged key is found by any of its spellings (`data-alt`).
+            opt.hidden = !optionMatches(`${opt.textContent} ${opt.dataset.alt ?? ''}`, query);
             if (!opt.hidden) first ??= opt;
         }
         p.none!.hidden = first !== null;

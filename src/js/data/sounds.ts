@@ -1,4 +1,5 @@
 import {fold, matchesAll, words} from '@arraypress/text';
+import {enharmonics, keyEntries, keyRank, sameKey} from './keys.js';
 import type {Sound, SoundInput, SoundsFilter, SoundsManifest, SoundsSort} from '../types.js';
 
 /**
@@ -97,18 +98,6 @@ export function normalizeKey(key: string | null | undefined): string {
     const acc = m[2] === '♯' ? '#' : m[2] === '♭' ? 'b' : m[2];
     const minor = m[3] && /^m(in(or)?)?$/i.test(m[3]) && m[3] !== 'M';
     return root + acc + (minor ? 'm' : '');
-}
-
-/** Pitch class of each root, for sorting keys: C, C#, D … B, majors before minors. */
-const KEY_PITCH: Record<string, number> = {C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11};
-
-/** Sort rank of a canonical key; unknown keys sort last. */
-function keyRank(key: string): number {
-    if (!key) return Infinity;
-    const minor = key.endsWith('m');
-    const root = minor ? key.slice(0, -1) : key;
-    const p = KEY_PITCH[root];
-    return p === undefined ? 1000 : p * 2 + (minor ? 1 : 0);
 }
 
 /**
@@ -259,28 +248,40 @@ export function normalizeSounds(list: SoundInput[], peakScale: number = 1): Soun
     return out;
 }
 
+/** Options of the pure filter helpers ({@link facets}, {@link matches}). */
+export interface KeyOptions {
+    /** Enharmonic keys (A#m and Bbm) are one key. Default true. Since 2.2.0. */
+    mergeEnharmonicKeys?: boolean;
+}
+
 /**
  * What the filter controls offer, derived from the sounds: each type with
- * its count (in first-seen order), each key (in musical order), the BPM
- * range, and how many are loops and one-shots. A control with nothing to
- * offer is not rendered.
+ * its count (in first-seen order), each key (in musical order; enharmonic
+ * spellings merged into one entry unless `mergeEnharmonicKeys` is false —
+ * see `keyEntries` for the spelling it shows), the BPM range, and how many
+ * are loops and one-shots. A control with nothing to offer is not rendered.
  *
  * @param sounds
+ * @param options
+ * @returns `keyAliases`: each merged key entry's other spellings in the
+ *   list (since 2.2.0).
  */
-export function facets(sounds: Sound[]): {types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number} {
+export function facets(sounds: Sound[], options: KeyOptions = {}): {types: {name: string, count: number}[], keys: string[], keyAliases: Record<string, string[]>, bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number} {
     const types = new Map<string, number>();
-    const keys = new Set<string>();
+    const keys: string[] = [];
     let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
     for (const s of sounds) {
         if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
-        if (s.key) keys.add(s.key);
+        if (s.key) keys.push(s.key);
         if (s.bpm != null) { min = Math.min(min, s.bpm); max = Math.max(max, s.bpm); }
         if (s.duration != null) hasDuration = true;
         if (s.loop) loops++;
     }
+    const entries = keyEntries(keys, options.mergeEnharmonicKeys !== false);
     return {
         types: [...types].map(([name, count]) => ({name, count})),
-        keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
+        keys: entries.keys,
+        keyAliases: entries.aliases,
         bpm: min === Infinity ? null : {min, max},
         hasDuration,
         loops,
@@ -298,12 +299,18 @@ export function facets(sounds: Sound[]): {types: {name: string, count: number}[]
  * number in the query also matches the BPM exactly, so "bass 128" finds
  * 128 BPM bass loops.
  *
+ * Keys: unless `mergeEnharmonicKeys` is false, a key filter matches every
+ * spelling of that key (A#m finds Bbm too), and a key typed in the search
+ * finds its other spellings.
+ *
  * @param sound
  * @param filter
+ * @param options
  */
-export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}): boolean {
+export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}, options: KeyOptions = {}): boolean {
+    const merge = options.mergeEnharmonicKeys !== false;
     if (filter.type && sound.type !== filter.type) return false;
-    if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
+    if (filter.key && !sameKey(sound.key, normalizeKey(filter.key), merge)) return false;
     if (filter.loop === 'loop' && !sound.loop) return false;
     if (filter.loop === 'one-shot' && sound.loop) return false;
     const lo = Number(filter.bpmMin), hi = Number(filter.bpmMax);
@@ -315,7 +322,7 @@ export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}): boole
     }
     const terms = words(filter.query || '');
     if (terms.length) {
-        const hay = [sound.title, sound.type, sound.key, ...(sound.tags || [])].join(' ');
+        const hay = [sound.title, sound.type, ...(merge ? enharmonics(sound.key) : [sound.key]), ...(sound.tags || [])].join(' ');
         const folded = fold(hay);
         // A number naming this sound's BPM is satisfied; the rest is text.
         const rest = terms.filter((w) => !(/^\d+$/.test(w) && !folded.includes(w)

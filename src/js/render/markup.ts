@@ -93,7 +93,9 @@ export interface MenuSpec {
     label: string;
     prefix?: string;
     value: string;
-    options: {value: string, label: string, count?: number}[];
+    /** `alt`: other names the menu's search finds the option by (a merged
+     *  key's other spellings). */
+    options: {value: string, label: string, count?: number, alt?: string}[];
     searchFrom: number;
     placeholder?: string;
     noMatches: string;
@@ -143,7 +145,7 @@ export function renderMenu(name: string, m: MenuSpec): string {
         'aria-expanded': 'true', 'aria-controls': listId, 'aria-autocomplete': 'list',
         'aria-label': m.placeholder, placeholder: m.placeholder, autocomplete: 'off', spellcheck: 'false',
     });
-    const options = m.options.map((o, i) => h('li', {role: 'option', id: `${m.id}-${name}-${i}`, class: 'ws-menu-option', 'data-value': o.value, 'aria-selected': String(o === current)},
+    const options = m.options.map((o, i) => h('li', {role: 'option', id: `${m.id}-${name}-${i}`, class: 'ws-menu-option', 'data-value': o.value, 'data-alt': o.alt, 'aria-selected': String(o === current)},
         ICONS.check,
         h('span', {class: 'ws-menu-text'}, text(o.label)),
         o.count != null && h('span', {class: 'ws-menu-count'}, text(o.count)),
@@ -234,7 +236,7 @@ function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id
         }),
         plan.key && menu('key', {
             label: s.key, value: '', placeholder: s.findKey,
-            options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k}))],
+            options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k, alt: f.keyAliases[k]?.join(' ')}))],
         }),
         plan.bpm && renderBpmMenu({id, s, range: bpmExtent(f.bpm)!}),
         plan.loops && renderLoopFilter(s),
@@ -347,7 +349,7 @@ function renderFooter({o, s, total}: RenderContext): string {
 export function renderSounds(sounds: SoundInput[], options: WaveformSoundsOptions = {}): string {
     const o = resolveRenderOptions(options);
     const list = normalizeSounds(sounds);
-    const ctx: RenderContext = {o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list)};
+    const ctx: RenderContext = {o, s: o.strings, f: facets(list, o), total: list.length, id: o.idPrefix || idBase(list)};
     const page = o.pageSize > 0 ? o.pageSize : Infinity;
     return renderToolbar(toolbarPlan(ctx.f, o), ctx)
         + h('ul', {class: `ws-list ws-list--${o.player}`, role: 'list', 'data-ws-list': true},

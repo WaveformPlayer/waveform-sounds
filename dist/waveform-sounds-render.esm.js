@@ -25,6 +25,76 @@ var ACCENTS = Object.freeze([
   [65056, 65071]
 ]);
 
+// src/js/data/keys.ts
+var KEY_PITCH = {
+  C: 0,
+  "B#": 0,
+  "C#": 1,
+  Db: 1,
+  D: 2,
+  "D#": 3,
+  Eb: 3,
+  E: 4,
+  Fb: 4,
+  "E#": 5,
+  F: 5,
+  "F#": 6,
+  Gb: 6,
+  G: 7,
+  "G#": 8,
+  Ab: 8,
+  A: 9,
+  "A#": 10,
+  Bb: 10,
+  B: 11,
+  Cb: 11
+};
+var CONVENTIONAL_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+var CONVENTIONAL_MINOR = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+function parseKey(key) {
+  const m = /^([A-G][#b]?)(m?)$/.exec(String(key ?? ""));
+  if (!m || KEY_PITCH[m[1]] === void 0) return null;
+  return { root: m[1], pitch: KEY_PITCH[m[1]], minor: m[2] === "m" };
+}
+function keyClass(key) {
+  const k = parseKey(key);
+  return k ? `${k.pitch}${k.minor ? "m" : ""}` : key;
+}
+function keyRank(key) {
+  if (!key) return Infinity;
+  const k = parseKey(key);
+  return k ? k.pitch * 2 + (k.minor ? 1 : 0) : 1e3;
+}
+function canonicalSpelling(counts) {
+  let best = 0;
+  for (const n of counts.values()) if (n > best) best = n;
+  const tied = [...counts].filter(([, n]) => n === best).map(([k2]) => k2).sort();
+  if (tied.length === 1) return tied[0];
+  const k = parseKey(tied[0]);
+  const conventional = k ? (k.minor ? CONVENTIONAL_MINOR : CONVENTIONAL_MAJOR)[k.pitch] : "";
+  return tied.includes(conventional) ? conventional : tied[0];
+}
+function keyEntries(keys, merge = true) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const key of keys) {
+    if (!key) continue;
+    const cls = merge ? keyClass(key) : key;
+    const g = groups.get(cls) ?? /* @__PURE__ */ new Map();
+    groups.set(cls, g);
+    g.set(key, (g.get(key) || 0) + 1);
+  }
+  const out = [];
+  const aliases = {};
+  for (const g of groups.values()) {
+    const entry = canonicalSpelling(g);
+    out.push(entry);
+    const others = [...g.keys()].filter((k) => k !== entry).sort();
+    if (others.length) aliases[entry] = others;
+  }
+  out.sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b));
+  return { keys: out, aliases };
+}
+
 // src/js/data/sounds.ts
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
@@ -70,14 +140,6 @@ function normalizeKey(key) {
   const acc = m[2] === "\u266F" ? "#" : m[2] === "\u266D" ? "b" : m[2];
   const minor = m[3] && /^m(in(or)?)?$/i.test(m[3]) && m[3] !== "M";
   return root + acc + (minor ? "m" : "");
-}
-var KEY_PITCH = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
-function keyRank(key) {
-  if (!key) return Infinity;
-  const minor = key.endsWith("m");
-  const root = minor ? key.slice(0, -1) : key;
-  const p = KEY_PITCH[root];
-  return p === void 0 ? 1e3 : p * 2 + (minor ? 1 : 0);
 }
 function formatDuration(seconds) {
   if (seconds == null || seconds === "") return "";
@@ -146,13 +208,13 @@ function normalizeSounds(list, peakScale = 1) {
   });
   return out;
 }
-function facets(sounds) {
+function facets(sounds, options = {}) {
   const types = /* @__PURE__ */ new Map();
-  const keys = /* @__PURE__ */ new Set();
+  const keys = [];
   let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
   for (const s of sounds) {
     if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
-    if (s.key) keys.add(s.key);
+    if (s.key) keys.push(s.key);
     if (s.bpm != null) {
       min = Math.min(min, s.bpm);
       max = Math.max(max, s.bpm);
@@ -160,9 +222,11 @@ function facets(sounds) {
     if (s.duration != null) hasDuration = true;
     if (s.loop) loops++;
   }
+  const entries = keyEntries(keys, options.mergeEnharmonicKeys !== false);
   return {
     types: [...types].map(([name, count]) => ({ name, count })),
-    keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
+    keys: entries.keys,
+    keyAliases: entries.aliases,
     bpm: min === Infinity ? null : { min, max },
     hasDuration,
     loops,
@@ -310,7 +374,8 @@ var RENDER_DEFAULTS = {
   menuSearch: 8,
   pageSize: 50,
   columns: [...COLUMNS],
-  maxTypeChips: 10
+  maxTypeChips: 10,
+  mergeEnharmonicKeys: true
 };
 var RENDER_OPTION_KEYS = [...Object.keys(RENDER_DEFAULTS), "idPrefix", "loop", "strings"];
 function pickRenderOptions(options) {
@@ -344,6 +409,7 @@ function resolveRenderOptions(options = {}) {
     menuSearch: wholeNumber(o.menuSearch, RENDER_DEFAULTS.menuSearch),
     maxTypeChips: wholeNumber(o.maxTypeChips, RENDER_DEFAULTS.maxTypeChips),
     pageSize: wholeNumber(o.pageSize, RENDER_DEFAULTS.pageSize),
+    mergeEnharmonicKeys: o.mergeEnharmonicKeys !== false,
     strings: { ...DEFAULT_STRINGS, ...defined(options.strings) }
   };
 }
@@ -412,7 +478,7 @@ function renderMenu(name, m) {
   });
   const options = m.options.map((o, i) => h(
     "li",
-    { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "aria-selected": String(o === current) },
+    { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "data-alt": o.alt, "aria-selected": String(o === current) },
     ICONS.check,
     h("span", { class: "ws-menu-text" }, text(o.label)),
     o.count != null && h("span", { class: "ws-menu-count" }, text(o.count))
@@ -510,7 +576,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       label: s.key,
       value: "",
       placeholder: s.findKey,
-      options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
+      options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k, alt: f.keyAliases[k]?.join(" ") }))]
     }),
     plan.bpm && renderBpmMenu({ id, s, range: bpmExtent(f.bpm) }),
     plan.loops && renderLoopFilter(s),
@@ -607,7 +673,7 @@ function renderFooter({ o, s, total }) {
 function renderSounds(sounds, options = {}) {
   const o = resolveRenderOptions(options);
   const list = normalizeSounds(sounds);
-  const ctx = { o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list) };
+  const ctx = { o, s: o.strings, f: facets(list, o), total: list.length, id: o.idPrefix || idBase(list) };
   const page = o.pageSize > 0 ? o.pageSize : Infinity;
   return renderToolbar(toolbarPlan(ctx.f, o), ctx) + h(
     "ul",

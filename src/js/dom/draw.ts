@@ -26,8 +26,11 @@ export function fitCanvas(canvas: HTMLCanvasElement) {
 }
 
 /**
- * Resample peaks to `count` bars (max of each bucket, so transients
- * survive the downsample).
+ * Resample peaks to `count` bars, whatever their number (64 or 128 from
+ * waveform-gen, any length of `wp1:`). Fewer bars than peaks: the max of
+ * each bucket, so transients survive. More bars than peaks: linear
+ * interpolation between neighbouring peaks — repeating each peak drew
+ * flat steps (64 peaks across a 400px row were plateaus three bars wide).
  * @param peaks
  * @param count
  */
@@ -35,6 +38,17 @@ export function resample(peaks: number[], count: number) {
     if (!peaks?.length || count <= 0) return [];
     if (peaks.length === count) return peaks;
     const out = new Array(count);
+    if (count > peaks.length) {
+        // Bar i's centre, on the peaks' own axis (peak j's centre is j).
+        const last = peaks.length - 1;
+        const ratio = peaks.length / count;
+        for (let i = 0; i < count; i++) {
+            const x = Math.min(Math.max((i + 0.5) * ratio - 0.5, 0), last);
+            const j = Math.floor(x), t = x - j;
+            out[i] = j >= last ? peaks[last] : peaks[j] + (peaks[j + 1] - peaks[j]) * t;
+        }
+        return out;
+    }
     const step = peaks.length / count;
     for (let i = 0; i < count; i++) {
         const start = Math.floor(i * step);

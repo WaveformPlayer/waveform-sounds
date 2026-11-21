@@ -18,7 +18,7 @@ export const COLUMNS: SoundsColumn[] = ['type', 'bpm', 'key', 'duration'];
 
 /** The options that shape the markup (the renderer's whole input). */
 export const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions,
-    'player' | 'search' | 'filters' | 'sorts' | 'loopToggle' | 'showCount' | 'menuSearch' | 'pageSize' | 'columns' | 'maxTypeChips'>> = {
+    'player' | 'search' | 'filters' | 'sorts' | 'loopToggle' | 'showCount' | 'menuSearch' | 'pageSize' | 'columns' | 'maxTypeChips' | 'mergeEnharmonicKeys'>> = {
     player: 'inline',
     search: true,
     filters: [...FILTERS],
@@ -29,6 +29,7 @@ export const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions,
     pageSize: 50,
     columns: [...COLUMNS],
     maxTypeChips: 10,
+    mergeEnharmonicKeys: true,
 };
 
 /** {@link resolveRenderOptions}' result: the render options, complete, plus
@@ -113,6 +114,7 @@ export function resolveRenderOptions(options: WaveformSoundsOptions = {}): Rende
         menuSearch: wholeNumber(o.menuSearch, RENDER_DEFAULTS.menuSearch),
         maxTypeChips: wholeNumber(o.maxTypeChips, RENDER_DEFAULTS.maxTypeChips),
         pageSize: wholeNumber(o.pageSize, RENDER_DEFAULTS.pageSize),
+        mergeEnharmonicKeys: o.mergeEnharmonicKeys !== false,
         strings: {...DEFAULT_STRINGS, ...defined(options.strings)},
     };
 }

@@ -76,6 +76,9 @@ export declare function formatBpmRange(min: string | number | null | undefined, 
  * @param available - From `facets()`, with `bpm` as the slider's range
  *   (`bpmExtent()`).
  * @param sorts - The sort orders offered.
+ * @param options
+ * @param options.mergeEnharmonicKeys - A key in either spelling selects
+ *   the list's entry for it (`?key=A#m` → `Bbm`). Default true. Since 2.2.0.
  * @returns A filter patch, and the sort (or null).
  */
 export declare function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, available: {
@@ -89,7 +92,9 @@ export declare function readUrlState(search: string, keys: ReturnType<typeof url
         min: number;
         max: number;
     } | null;
-}, sorts: string[]): {
+}, sorts: string[], options?: {
+    mergeEnharmonicKeys?: boolean;
+}): {
     filter: Partial<SoundsFilter>;
     sort: string | null;
 };

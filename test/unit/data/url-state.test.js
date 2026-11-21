@@ -41,6 +41,12 @@ describe('readUrlState', () => {
         expect(readUrlState('?q=loop&type=Bass&key=F+minor&bpm=120-130&sort=title', keys, available, SORTS))
             .toEqual({filter: {query: 'loop', type: 'Bass', key: 'Fm', bpmMin: '120', bpmMax: '130'}, sort: 'title'});
     });
+    it('a key in either spelling selects the list\'s entry (unless keys are not merged)', () => {
+        const merged = {...available, keys: ['C', 'Bbm']};
+        expect(readUrlState('?key=A%23m', keys, merged, SORTS).filter).toEqual({key: 'Bbm'});
+        expect(readUrlState('?key=Bbm', keys, merged, SORTS).filter).toEqual({key: 'Bbm'});
+        expect(readUrlState('?key=A%23m', keys, merged, SORTS, {mergeEnharmonicKeys: false}).filter).toEqual({});
+    });
     it('ignores what the list cannot use', () => {
         expect(readUrlState('?type=Pads&key=Q&sort=key&bpm=x', keys, available, SORTS)).toEqual({filter: {}, sort: null});
     });

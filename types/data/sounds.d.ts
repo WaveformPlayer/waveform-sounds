@@ -110,20 +110,30 @@ export declare function parseManifest(manifest: SoundsManifest | SoundInput[]): 
  * @param peakScale
  */
 export declare function normalizeSounds(list: SoundInput[], peakScale?: number): Sound[];
+/** Options of the pure filter helpers ({@link facets}, {@link matches}). */
+export interface KeyOptions {
+    /** Enharmonic keys (A#m and Bbm) are one key. Default true. Since 2.2.0. */
+    mergeEnharmonicKeys?: boolean;
+}
 /**
  * What the filter controls offer, derived from the sounds: each type with
- * its count (in first-seen order), each key (in musical order), the BPM
- * range, and how many are loops and one-shots. A control with nothing to
- * offer is not rendered.
+ * its count (in first-seen order), each key (in musical order; enharmonic
+ * spellings merged into one entry unless `mergeEnharmonicKeys` is false —
+ * see `keyEntries` for the spelling it shows), the BPM range, and how many
+ * are loops and one-shots. A control with nothing to offer is not rendered.
  *
  * @param sounds
+ * @param options
+ * @returns `keyAliases`: each merged key entry's other spellings in the
+ *   list (since 2.2.0).
  */
-export declare function facets(sounds: Sound[]): {
+export declare function facets(sounds: Sound[], options?: KeyOptions): {
     types: {
         name: string;
         count: number;
     }[];
     keys: string[];
+    keyAliases: Record<string, string[]>;
     bpm: {
         min: number;
         max: number;
@@ -142,10 +152,15 @@ export declare function facets(sounds: Sound[]): {
  * number in the query also matches the BPM exactly, so "bass 128" finds
  * 128 BPM bass loops.
  *
+ * Keys: unless `mergeEnharmonicKeys` is false, a key filter matches every
+ * spelling of that key (A#m finds Bbm too), and a key typed in the search
+ * finds its other spellings.
+ *
  * @param sound
  * @param filter
+ * @param options
  */
-export declare function matches(sound: Sound, filter?: Partial<SoundsFilter>): boolean;
+export declare function matches(sound: Sound, filter?: Partial<SoundsFilter>, options?: KeyOptions): boolean;
 /** The sort orders the toolbar offers. */
 export declare const SORTS: SoundsSort[];
 /**

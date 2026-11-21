@@ -10,6 +10,7 @@
  */
 
 import {LOOP_FILTERS, normalizeKey} from './sounds.js';
+import {keyEntry} from './keys.js';
 import type {SoundsFilter, SoundsLoopFilter} from '../types.js';
 
 /**
@@ -81,9 +82,12 @@ export function formatBpmRange(min: string | number | null | undefined, max: str
  * @param available - From `facets()`, with `bpm` as the slider's range
  *   (`bpmExtent()`).
  * @param sorts - The sort orders offered.
+ * @param options
+ * @param options.mergeEnharmonicKeys - A key in either spelling selects
+ *   the list's entry for it (`?key=A#m` → `Bbm`). Default true. Since 2.2.0.
  * @returns A filter patch, and the sort (or null).
  */
-export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, available: {types: {name: string}[], keys: string[], loops?: number, oneShots?: number, bpm?: {min: number, max: number} | null}, sorts: string[]): {filter: Partial<SoundsFilter>, sort: string|null} {
+export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, available: {types: {name: string}[], keys: string[], loops?: number, oneShots?: number, bpm?: {min: number, max: number} | null}, sorts: string[], options: {mergeEnharmonicKeys?: boolean} = {}): {filter: Partial<SoundsFilter>, sort: string|null} {
     const out: {filter: Partial<SoundsFilter>, sort: string | null} = {filter: {}, sort: null};
     if (!keys) return out;
     const sp = new URLSearchParams(search);
@@ -91,8 +95,8 @@ export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, a
     if (q) out.filter.query = q;
     const type = sp.get(keys.type);
     if (type && available.types.some((t) => t.name === type)) out.filter.type = type;
-    const key = normalizeKey(sp.get(keys.key));
-    if (key && available.keys.includes(key)) out.filter.key = key;
+    const key = keyEntry(normalizeKey(sp.get(keys.key)), available.keys, options.mergeEnharmonicKeys !== false);
+    if (key) out.filter.key = key;
     const parsed = parseBpmRange(sp.get(keys.bpm));
     // Without the pack's range (an older caller), the limits apply as given.
     const bpm = parsed && available.bpm !== undefined ? bpmRangeWithin(parsed, available.bpm) : parsed;

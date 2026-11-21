@@ -70,6 +70,94 @@ function matchesAll(name, query, options = {}) {
   });
 }
 
+// src/js/data/keys.ts
+var KEY_PITCH = {
+  C: 0,
+  "B#": 0,
+  "C#": 1,
+  Db: 1,
+  D: 2,
+  "D#": 3,
+  Eb: 3,
+  E: 4,
+  Fb: 4,
+  "E#": 5,
+  F: 5,
+  "F#": 6,
+  Gb: 6,
+  G: 7,
+  "G#": 8,
+  Ab: 8,
+  A: 9,
+  "A#": 10,
+  Bb: 10,
+  B: 11,
+  Cb: 11
+};
+var CONVENTIONAL_MAJOR = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+var CONVENTIONAL_MINOR = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+var SHARPS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+var FLATS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+function parseKey(key) {
+  const m = /^([A-G][#b]?)(m?)$/.exec(String(key ?? ""));
+  if (!m || KEY_PITCH[m[1]] === void 0) return null;
+  return { root: m[1], pitch: KEY_PITCH[m[1]], minor: m[2] === "m" };
+}
+function keyClass(key) {
+  const k = parseKey(key);
+  return k ? `${k.pitch}${k.minor ? "m" : ""}` : key;
+}
+function sameKey(a, b, merge = true) {
+  return a === b || merge && !!a && keyClass(a) === keyClass(b);
+}
+function keyRank(key) {
+  if (!key) return Infinity;
+  const k = parseKey(key);
+  return k ? k.pitch * 2 + (k.minor ? 1 : 0) : 1e3;
+}
+function enharmonics(key) {
+  const k = parseKey(key);
+  if (!k) return key ? [key] : [];
+  const mode = k.minor ? "m" : "";
+  return [.../* @__PURE__ */ new Set([key, SHARPS[k.pitch] + mode, FLATS[k.pitch] + mode])];
+}
+function canonicalSpelling(counts) {
+  let best = 0;
+  for (const n of counts.values()) if (n > best) best = n;
+  const tied = [...counts].filter(([, n]) => n === best).map(([k2]) => k2).sort();
+  if (tied.length === 1) return tied[0];
+  const k = parseKey(tied[0]);
+  const conventional = k ? (k.minor ? CONVENTIONAL_MINOR : CONVENTIONAL_MAJOR)[k.pitch] : "";
+  return tied.includes(conventional) ? conventional : tied[0];
+}
+function keyEntries(keys, merge = true) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const key of keys) {
+    if (!key) continue;
+    const cls = merge ? keyClass(key) : key;
+    const g = groups.get(cls) ?? /* @__PURE__ */ new Map();
+    groups.set(cls, g);
+    g.set(key, (g.get(key) || 0) + 1);
+  }
+  const out = [];
+  const aliases = {};
+  for (const g of groups.values()) {
+    const entry = canonicalSpelling(g);
+    out.push(entry);
+    const others = [...g.keys()].filter((k) => k !== entry).sort();
+    if (others.length) aliases[entry] = others;
+  }
+  out.sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b));
+  return { keys: out, aliases };
+}
+function keyEntry(key, entries, merge = true) {
+  if (!key) return "";
+  if (entries.includes(key)) return key;
+  if (!merge) return "";
+  const cls = keyClass(key);
+  return entries.find((e) => keyClass(e) === cls) ?? "";
+}
+
 // src/js/data/sounds.ts
 function encodePeaks(peaks) {
   if (!Array.isArray(peaks)) return "";
@@ -115,14 +203,6 @@ function normalizeKey(key) {
   const acc = m[2] === "\u266F" ? "#" : m[2] === "\u266D" ? "b" : m[2];
   const minor = m[3] && /^m(in(or)?)?$/i.test(m[3]) && m[3] !== "M";
   return root + acc + (minor ? "m" : "");
-}
-var KEY_PITCH = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
-function keyRank(key) {
-  if (!key) return Infinity;
-  const minor = key.endsWith("m");
-  const root = minor ? key.slice(0, -1) : key;
-  const p = KEY_PITCH[root];
-  return p === void 0 ? 1e3 : p * 2 + (minor ? 1 : 0);
 }
 function formatDuration(seconds) {
   if (seconds == null || seconds === "") return "";
@@ -197,13 +277,13 @@ function normalizeSounds(list, peakScale = 1) {
   });
   return out;
 }
-function facets(sounds) {
+function facets(sounds, options = {}) {
   const types = /* @__PURE__ */ new Map();
-  const keys = /* @__PURE__ */ new Set();
+  const keys = [];
   let min = Infinity, max = -Infinity, hasDuration = false, loops = 0;
   for (const s of sounds) {
     if (s.type) types.set(s.type, (types.get(s.type) || 0) + 1);
-    if (s.key) keys.add(s.key);
+    if (s.key) keys.push(s.key);
     if (s.bpm != null) {
       min = Math.min(min, s.bpm);
       max = Math.max(max, s.bpm);
@@ -211,18 +291,21 @@ function facets(sounds) {
     if (s.duration != null) hasDuration = true;
     if (s.loop) loops++;
   }
+  const entries = keyEntries(keys, options.mergeEnharmonicKeys !== false);
   return {
     types: [...types].map(([name, count]) => ({ name, count })),
-    keys: [...keys].sort((a, b) => keyRank(a) - keyRank(b) || a.localeCompare(b)),
+    keys: entries.keys,
+    keyAliases: entries.aliases,
     bpm: min === Infinity ? null : { min, max },
     hasDuration,
     loops,
     oneShots: sounds.length - loops
   };
 }
-function matches(sound, filter = {}) {
+function matches(sound, filter = {}, options = {}) {
+  const merge = options.mergeEnharmonicKeys !== false;
   if (filter.type && sound.type !== filter.type) return false;
-  if (filter.key && sound.key !== normalizeKey(filter.key)) return false;
+  if (filter.key && !sameKey(sound.key, normalizeKey(filter.key), merge)) return false;
   if (filter.loop === "loop" && !sound.loop) return false;
   if (filter.loop === "one-shot" && sound.loop) return false;
   const lo = Number(filter.bpmMin), hi = Number(filter.bpmMax);
@@ -233,7 +316,7 @@ function matches(sound, filter = {}) {
   }
   const terms = words(filter.query || "");
   if (terms.length) {
-    const hay = [sound.title, sound.type, sound.key, ...sound.tags || []].join(" ");
+    const hay = [sound.title, sound.type, ...merge ? enharmonics(sound.key) : [sound.key], ...sound.tags || []].join(" ");
     const folded = fold(hay);
     const rest = terms.filter((w) => !(/^\d+$/.test(w) && !folded.includes(w) && sound.bpm != null && Math.round(sound.bpm) === Number(w)));
     if (rest.length && !matchesAll(hay, rest.join(" "))) return false;
@@ -278,6 +361,16 @@ function resample(peaks, count) {
   if (!peaks?.length || count <= 0) return [];
   if (peaks.length === count) return peaks;
   const out = new Array(count);
+  if (count > peaks.length) {
+    const last = peaks.length - 1;
+    const ratio = peaks.length / count;
+    for (let i = 0; i < count; i++) {
+      const x = Math.min(Math.max((i + 0.5) * ratio - 0.5, 0), last);
+      const j = Math.floor(x), t = x - j;
+      out[i] = j >= last ? peaks[last] : peaks[j] + (peaks[j + 1] - peaks[j]) * t;
+    }
+    return out;
+  }
   const step = peaks.length / count;
   for (let i = 0; i < count; i++) {
     const start = Math.floor(i * step);
@@ -507,7 +600,7 @@ var Menus = class {
     const p = partsOf(menu);
     let first = null;
     for (const opt of optionsOf(p)) {
-      opt.hidden = !optionMatches(opt.textContent, query);
+      opt.hidden = !optionMatches(`${opt.textContent} ${opt.dataset.alt ?? ""}`, query);
       if (!opt.hidden) first ??= opt;
     }
     p.none.hidden = first !== null;
@@ -737,7 +830,8 @@ var RENDER_DEFAULTS = {
   menuSearch: 8,
   pageSize: 50,
   columns: [...COLUMNS],
-  maxTypeChips: 10
+  maxTypeChips: 10,
+  mergeEnharmonicKeys: true
 };
 var RENDER_OPTION_KEYS = [...Object.keys(RENDER_DEFAULTS), "idPrefix", "loop", "strings"];
 function pickRenderOptions(options) {
@@ -771,6 +865,7 @@ function resolveRenderOptions(options = {}) {
     menuSearch: wholeNumber(o.menuSearch, RENDER_DEFAULTS.menuSearch),
     maxTypeChips: wholeNumber(o.maxTypeChips, RENDER_DEFAULTS.maxTypeChips),
     pageSize: wholeNumber(o.pageSize, RENDER_DEFAULTS.pageSize),
+    mergeEnharmonicKeys: o.mergeEnharmonicKeys !== false,
     strings: { ...DEFAULT_STRINGS, ...defined(options.strings) }
   };
 }
@@ -844,6 +939,7 @@ function readDataOptions(el) {
     pageSize: parseNumber(d.pageSize),
     maxTypeChips: parseNumber(d.maxTypeChips),
     columns: parseList(d.columns),
+    mergeEnharmonicKeys: parseBool(d.mergeEnharmonicKeys),
     waveformStyle: d.waveformStyle || void 0,
     waveformColor: d.waveformColor || void 0,
     progressColor: d.progressColor || void 0,
@@ -958,7 +1054,7 @@ function renderMenu(name, m) {
   });
   const options = m.options.map((o, i) => h(
     "li",
-    { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "aria-selected": String(o === current) },
+    { role: "option", id: `${m.id}-${name}-${i}`, class: "ws-menu-option", "data-value": o.value, "data-alt": o.alt, "aria-selected": String(o === current) },
     ICONS.check,
     h("span", { class: "ws-menu-text" }, text(o.label)),
     o.count != null && h("span", { class: "ws-menu-count" }, text(o.count))
@@ -1056,7 +1152,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       label: s.key,
       value: "",
       placeholder: s.findKey,
-      options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
+      options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k, alt: f.keyAliases[k]?.join(" ") }))]
     }),
     plan.bpm && renderBpmMenu({ id, s, range: bpmExtent(f.bpm) }),
     plan.loops && renderLoopFilter(s),
@@ -1153,7 +1249,7 @@ function renderFooter({ o, s, total }) {
 function renderSounds(sounds, options = {}) {
   const o = resolveRenderOptions(options);
   const list = normalizeSounds(sounds);
-  const ctx = { o, s: o.strings, f: facets(list), total: list.length, id: o.idPrefix || idBase(list) };
+  const ctx = { o, s: o.strings, f: facets(list, o), total: list.length, id: o.idPrefix || idBase(list) };
   const page = o.pageSize > 0 ? o.pageSize : Infinity;
   return renderToolbar(toolbarPlan(ctx.f, o), ctx) + h(
     "ul",
@@ -1293,7 +1389,7 @@ function formatBpmRange(min, max) {
   const lo = min ?? "", hi = max ?? "";
   return lo !== "" || hi !== "" ? `${lo}-${hi}` : "";
 }
-function readUrlState(search, keys, available, sorts) {
+function readUrlState(search, keys, available, sorts, options = {}) {
   const out = { filter: {}, sort: null };
   if (!keys) return out;
   const sp = new URLSearchParams(search);
@@ -1301,8 +1397,8 @@ function readUrlState(search, keys, available, sorts) {
   if (q) out.filter.query = q;
   const type = sp.get(keys.type);
   if (type && available.types.some((t) => t.name === type)) out.filter.type = type;
-  const key = normalizeKey(sp.get(keys.key));
-  if (key && available.keys.includes(key)) out.filter.key = key;
+  const key = keyEntry(normalizeKey(sp.get(keys.key)), available.keys, options.mergeEnharmonicKeys !== false);
+  if (key) out.filter.key = key;
   const parsed = parseBpmRange(sp.get(keys.bpm));
   const bpm = parsed && available.bpm !== void 0 ? bpmRangeWithin(parsed, available.bpm) : parsed;
   if (bpm) Object.assign(out.filter, bpm);
@@ -1394,16 +1490,18 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
     if (this.destroyed) return;
     this._addedClasses = ["waveform-sounds", `waveform-sounds--${this.render.player}`].filter((c) => !el.classList.contains(c));
     el.classList.add(...this._addedClasses);
+    this._facets = facets(this.sounds, this.render);
     this._cacheRefs();
     this._bind();
     this._observe();
     this._resolveColors();
-    if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
+    if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, this._facets);
     this._setLoop(this.loop);
-    this._bpmExtent = bpmExtent(facets(this.sounds).bpm);
-    this._sorts = availableSorts(this.render.sorts, facets(this.sounds));
+    this._bpmExtent = bpmExtent(this._facets.bpm);
+    this._sorts = availableSorts(this.render.sorts, this._facets);
     if (!this._sortSet) this.sortBy = this._sorts[0] || "default";
     this._readUrl();
+    this.filter = { ...this.filter, key: this._keyEntry(this.filter.key) };
     this._syncControls();
     this._apply({ resort: this.sortBy !== "default" });
     if (this._playerClass()) this._ensureEngine();
@@ -1791,8 +1889,8 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
   _readUrl() {
     const keys = urlKeys(this.options.urlState);
     if (!keys || typeof location === "undefined") return;
-    const f = facets(this.sounds);
-    const { filter, sort } = readUrlState(location.search, keys, { ...f, bpm: bpmExtent(f.bpm) }, this._sorts);
+    const f = this._facets;
+    const { filter, sort } = readUrlState(location.search, keys, { ...f, bpm: bpmExtent(f.bpm) }, this._sorts, this.render);
     this.filter = { ...this.filter, ...filter };
     if (sort) {
       this.sortBy = sort;
@@ -1824,10 +1922,22 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
    * @internal
    */
   _match() {
-    return sortSounds(this.sounds.filter((s) => matches(s, this.filter)), this.sortBy);
+    return sortSounds(this.sounds.filter((s) => matches(s, this.filter, this.render)), this.sortBy);
+  }
+  /**
+   * A key filter in the list's own spelling: with enharmonic keys merged,
+   * `A#m` on a list whose entry is `Bbm` becomes `Bbm` (so the menu and
+   * the address show the entry). A key the list doesn't have stays as
+   * given (it matches nothing, as before).
+   * @internal
+   */
+  _keyEntry(key) {
+    const k = normalizeKey(key);
+    return this._facets && keyEntry(k, this._facets.keys, this.render.mergeEnharmonicKeys) || k;
   }
   setFilter(patch = {}) {
     this.filter = { ...this.filter, ...patch };
+    if (patch.key) this.filter.key = this._keyEntry(patch.key);
     this.limit = this._pageSize();
     this._syncControls();
     this._apply({ resort: false });
@@ -2427,7 +2537,8 @@ var ELEMENT_OPTION_KEYS = [
   "autoAdvance",
   "arrowAudition",
   "strings",
-  "playerOptions"
+  "playerOptions",
+  "mergeEnharmonicKeys"
 ];
 var kebab = (key) => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 function readElementOptions(el) {

@@ -20,8 +20,11 @@ export declare function fitCanvas(canvas: HTMLCanvasElement): {
     dpr: number;
 } | null;
 /**
- * Resample peaks to `count` bars (max of each bucket, so transients
- * survive the downsample).
+ * Resample peaks to `count` bars, whatever their number (64 or 128 from
+ * waveform-gen, any length of `wp1:`). Fewer bars than peaks: the max of
+ * each bucket, so transients survive. More bars than peaks: linear
+ * interpolation between neighbouring peaks — repeating each peak drew
+ * flat steps (64 peaks across a 400px row were plateaus three bars wide).
  * @param peaks
  * @param count
  */

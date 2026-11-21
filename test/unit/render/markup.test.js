@@ -144,6 +144,18 @@ describe('renderSounds (server)', () => {
         expect(html.slice(open.length, -'</div>'.length)).toBe(renderSounds(sounds, opts));
     });
 
+    it('carries mergeEnharmonicKeys: false to the runtime, and the key menu keeps every spelling', () => {
+        const keyed = [{url: '/1', key: 'A#m'}, {url: '/2', key: 'Bbm'}, {url: '/3', key: 'C'}];
+        const merged = renderSounds(keyed);
+        // One of each: the tie goes to the conventional spelling.
+        expect(merged).toContain('data-value="Bbm" data-alt="A#m"');
+        expect(merged).not.toContain('data-value="A#m"');
+        const html = renderSoundsElement(keyed, {mergeEnharmonicKeys: false});
+        expect(html).toContain('data-merge-enharmonic-keys="false"');
+        expect(html).toContain('data-value="A#m" aria-selected');
+        expect(html).toContain('data-value="Bbm" aria-selected');
+    });
+
 });
 
 describe('toolbarPlan', () => {
@@ -231,7 +243,7 @@ describe('the Loop toggle\'s starting state', () => {
 
 describe('pickRenderOptions', () => {
     it('keeps the render options that are set, nothing else', () => {
-        expect(RENDER_OPTION_KEYS).toEqual(['player', 'search', 'filters', 'sorts', 'loopToggle', 'showCount', 'menuSearch', 'pageSize', 'columns', 'maxTypeChips', 'idPrefix', 'loop', 'strings']);
+        expect(RENDER_OPTION_KEYS).toEqual(['player', 'search', 'filters', 'sorts', 'loopToggle', 'showCount', 'menuSearch', 'pageSize', 'columns', 'maxTypeChips', 'mergeEnharmonicKeys', 'idPrefix', 'loop', 'strings']);
         expect(pickRenderOptions({pageSize: 20, loop: null, onPlay: () => {}, waveformColor: 'red', strings: {all: 'A'}, player: undefined}))
             .toEqual({pageSize: 20, strings: {all: 'A'}});
         expect(pickRenderOptions(null)).toEqual({});

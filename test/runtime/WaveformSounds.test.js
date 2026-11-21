@@ -865,6 +865,47 @@ describe('urlState', () => {
     });
 });
 
+describe('enharmonic keys', () => {
+    const KEYED = [
+        {url: '/k/1.mp3', title: 'One', type: 'Keys', key: 'A#m'},
+        {url: '/k/2.mp3', title: 'Two', type: 'Keys', key: 'Bbm'},
+        {url: '/k/3.mp3', title: 'Three', type: 'Keys', key: 'Bbm'},
+        {url: '/k/4.mp3', title: 'Four', type: 'Keys', key: 'C'},
+    ];
+    const keyOptions = () => [...host.querySelectorAll('[data-ws-menu="key"] [role="option"]')].map((o) => o.dataset.value);
+    const titles = (ws) => ws.visible.map((s) => s.title);
+    const at = (q) => history.replaceState(null, '', `/pack${q}`);
+    afterEach(() => at(''));
+
+    it('are one menu entry (the pack\'s spelling), and filtering on either spelling finds both', async () => {
+        const ws = await make({sounds: KEYED});
+        expect(keyOptions()).toEqual(['', 'C', 'Bbm']);
+        expect(host.querySelector('[data-ws-menu="key"] [data-value="Bbm"]').dataset.alt).toBe('A#m');
+        ws.setFilter({key: 'A#m'});
+        expect(ws.filter.key).toBe('Bbm');
+        expect(titles(ws)).toEqual(['One', 'Two', 'Three']);
+        expect(host.querySelector('[data-ws-menu="key"] [data-ws-menu-value]').textContent).toBe('Bbm');
+        // Each row keeps its own spelling.
+        expect(host.querySelector('[data-ws-index="0"] .ws-key').textContent).toContain('A#m');
+    });
+
+    it('the address accepts either spelling', async () => {
+        at('?key=A%23m');
+        const ws = await make({sounds: KEYED, urlState: true});
+        expect(ws.filter.key).toBe('Bbm');
+        expect(titles(ws)).toHaveLength(3);
+    });
+
+    it('mergeEnharmonicKeys: false (or data-merge-enharmonic-keys="false") keeps them apart', async () => {
+        host.dataset.mergeEnharmonicKeys = 'false';
+        const ws = await make({sounds: KEYED});
+        expect(ws.options.mergeEnharmonicKeys).toBe(false);
+        expect(keyOptions()).toEqual(['', 'C', 'A#m', 'Bbm']);
+        ws.setFilter({key: 'A#m'});
+        expect(titles(ws)).toEqual(['One']);
+    });
+});
+
 describe('keyboard', () => {
     const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', {key: k, bubbles: true, cancelable: true}));
 

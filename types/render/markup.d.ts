@@ -69,10 +69,13 @@ export interface MenuSpec {
     label: string;
     prefix?: string;
     value: string;
+    /** `alt`: other names the menu's search finds the option by (a merged
+     *  key's other spellings). */
     options: {
         value: string;
         label: string;
         count?: number;
+        alt?: string;
     }[];
     searchFrom: number;
     placeholder?: string;

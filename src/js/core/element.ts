@@ -37,7 +37,7 @@ declare global {
 export const ELEMENT_OPTION_KEYS = [
     'player', 'manifest', 'search', 'filters', 'sorts', 'showCount', 'menuSearch', 'idPrefix', 'urlState',
     'loopToggle', 'pageSize', 'maxTypeChips', 'columns', 'waveformStyle', 'waveformColor', 'progressColor',
-    'barWidth', 'barGap', 'loop', 'autoAdvance', 'arrowAudition', 'strings', 'playerOptions',
+    'barWidth', 'barGap', 'loop', 'autoAdvance', 'arrowAudition', 'strings', 'playerOptions', 'mergeEnharmonicKeys',
 ];
 
 /**

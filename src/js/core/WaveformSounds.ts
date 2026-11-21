@@ -26,7 +26,8 @@
  * @module core
  */
 
-import {availableSorts, facets, formatClock, formatDuration, matches, normalizeSounds, parseManifest, sortSounds, SORTS} from '../data/sounds.js';
+import {availableSorts, facets, formatClock, formatDuration, matches, normalizeKey, normalizeSounds, parseManifest, sortSounds, SORTS} from '../data/sounds.js';
+import {keyEntry} from '../data/keys.js';
 import {drawRowWaveform, resample} from '../dom/draw.js';
 import {engineOptions, engineTrack} from './engine.js';
 import {Menus} from '../dom/menus.js';
@@ -41,7 +42,7 @@ import {ancestorsOf, forcedColors, pageSurface, resolveCssColor} from '../dom/co
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
 import {h, text} from '../render/html.js';
-import type {decodePeaks, encodePeaks, normalizeKey} from '../data/sounds.js';
+import type {decodePeaks, encodePeaks} from '../data/sounds.js';
 import type {EngineTrack} from './engine.js';
 import type {WaveformPlayer} from '@arraypress/waveform-player';
 import type {RenderOptions} from '../render/options.js';
@@ -181,6 +182,7 @@ export class WaveformSounds extends EventTarget {
     /** @internal */ declare _loopSet: boolean | undefined;
     /** @internal */ declare _sortSet: boolean | undefined;
     /** @internal */ declare _bpmExtent: {min: number, max: number} | null;
+    /** @internal What the sounds offer the controls (built once). */ declare _facets: ReturnType<typeof facets> | undefined;
     /** @internal */ declare _sorts: string[];
     /** @internal */ declare _lastSort: string | undefined;
     /** @internal */ declare _lastPointer: string | undefined;
@@ -276,21 +278,24 @@ export class WaveformSounds extends EventTarget {
         this._addedClasses = ['waveform-sounds', `waveform-sounds--${this.render.player}`].filter((c) => !el.classList.contains(c));
         el.classList.add(...this._addedClasses);
 
+        this._facets = facets(this.sounds, this.render);
         this._cacheRefs();
         this._bind();
         this._observe();
         this._resolveColors();
         // Unless set (option or an early setLoop()), Loop starts on exactly
         // when the list marks loops — only those repeat.
-        if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
+        if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, this._facets);
         this._setLoop(this.loop);
-        this._bpmExtent = bpmExtent(facets(this.sounds).bpm);
+        this._bpmExtent = bpmExtent(this._facets.bpm);
 
         // The starting order is the first one offered, unless setSort()
         // already chose one; then the address may override both.
-        this._sorts = availableSorts(this.render.sorts, facets(this.sounds));
+        this._sorts = availableSorts(this.render.sorts, this._facets);
         if (!this._sortSet) (this as Writable<WaveformSounds>).sortBy = (this._sorts[0] || 'default') as SoundsSort;
         this._readUrl();
+        // A key set from code before now, in the list's spelling.
+        (this as Writable<WaveformSounds>).filter = {...this.filter, key: this._keyEntry(this.filter.key)};
         // Show any filter/sort set before now (from code or the address).
         this._syncControls();
         this._apply({resort: this.sortBy !== 'default'});
@@ -714,8 +719,8 @@ export class WaveformSounds extends EventTarget {
     _readUrl(): void {
         const keys = urlKeys(this.options.urlState);
         if (!keys || typeof location === 'undefined') return;
-        const f = facets(this.sounds);
-        const {filter, sort} = readUrlState(location.search, keys, {...f, bpm: bpmExtent(f.bpm)}, this._sorts);
+        const f = this._facets!;
+        const {filter, sort} = readUrlState(location.search, keys, {...f, bpm: bpmExtent(f.bpm)}, this._sorts, this.render);
         (this as Writable<WaveformSounds>).filter = {...this.filter, ...filter};
         if (sort) { (this as Writable<WaveformSounds>).sortBy = sort as SoundsSort; this._sortSet = true; }
     }
@@ -750,7 +755,19 @@ export class WaveformSounds extends EventTarget {
      * @internal
      */
     _match(): Sound[] {
-        return sortSounds(this.sounds.filter((s) => matches(s, this.filter)), this.sortBy);
+        return sortSounds(this.sounds.filter((s) => matches(s, this.filter, this.render)), this.sortBy);
+    }
+
+    /**
+     * A key filter in the list's own spelling: with enharmonic keys merged,
+     * `A#m` on a list whose entry is `Bbm` becomes `Bbm` (so the menu and
+     * the address show the entry). A key the list doesn't have stays as
+     * given (it matches nothing, as before).
+     * @internal
+     */
+    _keyEntry(key: string | undefined): string {
+        const k = normalizeKey(key);
+        return (this._facets && keyEntry(k, this._facets.keys, this.render.mergeEnharmonicKeys)) || k;
     }
 
     /**
@@ -764,6 +781,7 @@ export class WaveformSounds extends EventTarget {
     setFilter(patch: Partial<SoundsFilter>): void;
     setFilter(patch: Partial<SoundsFilter> = {}): void {
         (this as Writable<WaveformSounds>).filter = {...this.filter, ...patch};
+        if (patch.key) this.filter.key = this._keyEntry(patch.key);
         this.limit = this._pageSize();
         this._syncControls();
         this._apply({resort: false});

@@ -11,7 +11,7 @@ export declare const FILTERS: SoundsFilterControl[];
 /** The columns a row can show after its title. */
 export declare const COLUMNS: SoundsColumn[];
 /** The options that shape the markup (the renderer's whole input). */
-export declare const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions, 'player' | 'search' | 'filters' | 'sorts' | 'loopToggle' | 'showCount' | 'menuSearch' | 'pageSize' | 'columns' | 'maxTypeChips'>>;
+export declare const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions, 'player' | 'search' | 'filters' | 'sorts' | 'loopToggle' | 'showCount' | 'menuSearch' | 'pageSize' | 'columns' | 'maxTypeChips' | 'mergeEnharmonicKeys'>>;
 /** {@link resolveRenderOptions}' result: the render options, complete, plus
  *  whatever else the caller passed. */
 export type RenderOptions = typeof RENDER_DEFAULTS & {
