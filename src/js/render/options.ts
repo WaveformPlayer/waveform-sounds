@@ -8,16 +8,17 @@
 
 import {SORTS} from '../data/sounds.js';
 import {DEFAULT_STRINGS} from './strings.js';
-import type {WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
+import type {SoundsColumn, SoundsFilterControl, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 /** The filter controls a list can offer. */
-export const FILTERS = ['type', 'key', 'bpm', 'loop'];
+export const FILTERS: SoundsFilterControl[] = ['type', 'key', 'bpm', 'loop'];
 
 /** The columns a row can show after its title. */
-export const COLUMNS = ['type', 'bpm', 'key', 'duration'];
+export const COLUMNS: SoundsColumn[] = ['type', 'bpm', 'key', 'duration'];
 
 /** The options that shape the markup (the renderer's whole input). */
-export const RENDER_DEFAULTS = {
+export const RENDER_DEFAULTS: Required<Pick<WaveformSoundsOptions,
+    'player' | 'search' | 'filters' | 'sorts' | 'loopToggle' | 'showCount' | 'menuSearch' | 'pageSize' | 'columns' | 'maxTypeChips'>> = {
     player: 'inline',
     search: true,
     filters: [...FILTERS],
@@ -56,7 +57,7 @@ export function defined(obj: Record<string, any> | null | undefined): Record<str
  * @param fallback
  * @returns 
  */
-export function allowedList(values: unknown, allowed: string[], fallback: string[]): string[] {
+export function allowedList<T extends string>(values: unknown, allowed: T[], fallback: T[]): T[] {
     return Array.isArray(values) ? values.filter((v) => allowed.includes(v)) : fallback;
 }
 

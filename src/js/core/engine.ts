@@ -16,16 +16,16 @@ const CALLBACKS = ['onLoad', 'onPlay', 'onPause', 'onEnd', 'onTimeUpdate', 'onEr
  *   - the six callbacks always reach the list — a site's own callback of
  *     the same name runs as well, after it, with the same arguments.
  *
- * @param {Object|null|undefined} user - The site's `playerOptions`.
- * @param {'inline'|'strip'} layout - Strip shows the engine, so it's taller.
- * @param {Record<string, Function>} handlers - The list's callbacks, keyed by
+ * @param user - The site's `playerOptions`.
+ * @param layout - Strip shows the engine, so it's taller.
+ * @param handlers - The list's callbacks, keyed by
  *   option name (`onPlay`, …).
- * @returns {Object} Options for `new WaveformPlayer(el, options)`.
+ * @returns Options for `new WaveformPlayer(el, options)`.
  */
-export function engineOptions(user, layout, handlers) {
+export function engineOptions(user: Record<string, any> | null | undefined, layout: 'inline' | 'strip', handlers: Record<string, Function>): Record<string, any> {
     const site = user || {};
     const strip = layout === 'strip';
-    const options = {
+    const options: Record<string, any> = {
         height: strip ? 48 : 32,
         waveformStyle: strip ? 'mirror' : 'bars',
         preload: 'metadata',
@@ -34,7 +34,7 @@ export function engineOptions(user, layout, handlers) {
         audioMode: 'self',
     };
     for (const name of CALLBACKS) {
-        options[name] = (...args) => {
+        options[name] = (...args: any[]) => {
             handlers[name]?.(...args);
             if (typeof site[name] === 'function') site[name](...args);
         };
@@ -48,10 +48,10 @@ export function engineOptions(user, layout, handlers) {
  * Supplied peaks also stop a hidden engine from downloading and decoding
  * the whole file just to draw it.
  *
- * @param {{peaks: number[]|null, waveform: string|null}} sound
- * @param {'inline'|'strip'} layout
- * @returns {number[]|string|null}
+ * @param sound
+ * @param layout
+ * @returns 
  */
-export function enginePeaks(sound, layout) {
+export function enginePeaks(sound: {peaks: number[]|null, waveform: string|null}, layout: 'inline' | 'strip'): number[] | string | null {
     return (layout === 'strip' && sound.waveform) || sound.peaks || null;
 }

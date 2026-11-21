@@ -294,7 +294,7 @@ export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}): boole
 }
 
 /** The sort orders the toolbar offers. */
-export const SORTS = ['default', 'title', 'bpm', 'key', 'duration'];
+export const SORTS: SoundsSort[] = ['default', 'title', 'bpm', 'key', 'duration'];
 
 /** What each sort order needs from the data before it's worth offering. */
 const SORT_NEEDS: Record<string, (f: ReturnType<typeof facets>) => boolean> = {

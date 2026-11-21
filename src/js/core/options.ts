@@ -12,11 +12,12 @@
 
 import {RENDER_DEFAULTS} from '../render/options.js';
 import {LOG} from '../shared/utils.js';
+import type {WaveformSoundsOptions} from '../types.js';
 
 export {RENDER_DEFAULTS};
 
 /** Every option, with its default. */
-export const DEFAULT_OPTIONS = {
+export const DEFAULT_OPTIONS: WaveformSoundsOptions = {
     ...RENDER_DEFAULTS,
     sounds: null,
     manifest: null,
@@ -28,7 +29,9 @@ export const DEFAULT_OPTIONS = {
     loop: null,
     autoAdvance: false,
     arrowAudition: true,
-    idPrefix: null,
+    // null is "unset" (the container's id, else a hash); the public type,
+    // unchanged from 0.3.1, has no null, hence the cast (it emits nothing).
+    idPrefix: null as unknown as string,
     urlState: false,
     playerOptions: null,
     playerClass: null,
@@ -44,10 +47,10 @@ export const DEFAULT_OPTIONS = {
 /**
  * A boolean attribute: present-and-empty or "true" → true, "false" → false.
  *
- * @param {string|undefined} value
- * @returns {boolean|undefined} undefined for anything else (not set).
+ * @param value
+ * @returns undefined for anything else (not set).
  */
-export function parseBool(value) {
+export function parseBool(value: string | undefined): boolean | undefined {
     if (value === '' || value === 'true') return true;
     if (value === 'false') return false;
     return undefined;
@@ -57,10 +60,10 @@ export function parseBool(value) {
  * A comma list attribute ("type, key" → ['type', 'key']). An empty string
  * is an empty list (e.g. `data-sorts=""` = no sort menu).
  *
- * @param {string|undefined} value
- * @returns {string[]|undefined}
+ * @param value
+ * @returns 
  */
-export function parseList(value) {
+export function parseList(value: string | undefined): string[] | undefined {
     if (value == null) return undefined;
     return value.split(',').map((x) => x.trim()).filter(Boolean);
 }
@@ -68,10 +71,10 @@ export function parseList(value) {
 /**
  * A number attribute; an empty string is "not set".
  *
- * @param {string|undefined} value
- * @returns {number|undefined}
+ * @param value
+ * @returns 
  */
-export function parseNumber(value) {
+export function parseNumber(value: string | undefined): number | undefined {
     return value === undefined || value === '' ? undefined : Number(value);
 }
 
@@ -79,10 +82,10 @@ export function parseNumber(value) {
  * `data-url-state`: "true"/empty → true, "false" → false, anything else is
  * the parameter prefix.
  *
- * @param {string|undefined} value
- * @returns {boolean|string|undefined}
+ * @param value
+ * @returns 
  */
-export function parseUrlState(value) {
+export function parseUrlState(value: string | undefined): boolean | string | undefined {
     if (value === undefined) return undefined;
     const b = parseBool(value);
     return b === undefined ? value : b;
@@ -93,11 +96,11 @@ export function parseUrlState(value) {
  * reported and ignored, never thrown: a typo in markup must not take the
  * whole list down.
  *
- * @param {string|undefined} value
- * @param {string} name - The attribute name, for the warning.
- * @returns {Object|undefined}
+ * @param value
+ * @param name - The attribute name, for the warning.
+ * @returns 
  */
-export function parseJson(value, name) {
+export function parseJson(value: string | undefined, name: string): Record<string, any> | undefined {
     if (!value) return undefined;
     try {
         return JSON.parse(value);
@@ -112,12 +115,12 @@ export function parseJson(value, name) {
  * `data-page-size` → `pageSize`). Attributes that are absent (or unusable)
  * are left out, so they never override a constructor option.
  *
- * @param {HTMLElement} el
- * @returns {Object} The options found.
+ * @param el
+ * @returns The options found.
  */
-export function readDataOptions(el) {
+export function readDataOptions(el: HTMLElement): Record<string, any> {
     const d = el.dataset || {};
-    const out = {
+    const out: Record<string, any> = {
         player: d.player || undefined,
         manifest: d.manifest || undefined,
         search: parseBool(d.search),
@@ -150,11 +153,11 @@ export function readDataOptions(el) {
  * Merge option sources: later ones win, and null/undefined never
  * overwrite (an unset prop must not erase a default).
  *
- * @param {...(Object|null|undefined)} sources
- * @returns {Object}
+ * @param sources
+ * @returns 
  */
-export function mergeOptions(...sources) {
-    const out = {};
+export function mergeOptions(...sources: (Record<string, any> | null | undefined)[]): Record<string, any> {
+    const out: Record<string, any> = {};
     for (const src of sources) {
         if (!src) continue;
         for (const k in src) if (src[k] !== null && src[k] !== undefined) out[k] = src[k];
