@@ -7,26 +7,29 @@ A searchable, filterable list of sounds (sample-pack previews) built on
 - `npm test` — vitest + jsdom; `test/integration.test.js` runs against the
   REAL `@arraypress/waveform-player` (a devDependency from npm), the rest against
   the stand-in in `test/setup.js`.
-- `npm run build` — iife, min, esm, cjs, no-autoinit (esm+cjs), render (esm+cjs), css.
+- `npm run build` — iife, min, esm, cjs, no-autoinit (esm+cjs), render (esm+cjs), css,
+  then `build:types` (declarations into `types/`, generated: never edit them).
+- `npm run typecheck` (strict `tsc`, must be 0 errors) · `npm run lint` (Biome).
 - `npm run size` — currently ~13.9 KB JS / ~2.6 KB CSS gzipped.
 
 ## Architecture (`src/js/`) — by layer
 
 ```
-index.js · entry.js · render-entry.js    entry points (each is a build target)
-core/     WaveformSounds.js   the class: orchestration only
-          engine.js           the engine player's options + per-sound peaks
-          options.js          DEFAULT_OPTIONS, data-* parsing, merge
-data/     sounds.js           pure: normalise, peaks codec, keys, facets, filter, sort
-          url-state.js        pure: filters <-> the address
-          navigation.js       pure: key targets, seek steps, paging
-render/   markup.js           server-safe markup (toolbarPlan, renderMenu, renderRow…)
-          options.js          render options + validation (DOM-free)
-          html.js · icons.js · strings.js
-dom/      menus.js            the dropdown controller (+ pure optionMatches/stepIndex)
-          rows.js             row DOM: read back, index, order, visible
-          draw.js · colors.js canvas drawing; colour + page-surface resolution
-shared/   utils.js            clamp, pointerFraction, isTyping, emit, hashString
+index.ts · entry.ts · render-entry.ts    entry points (each is a build target)
+types.ts  the public types (options, sounds, events)
+core/     WaveformSounds.ts   the class: orchestration only
+          engine.ts           the engine player's options + per-sound peaks
+          options.ts          DEFAULT_OPTIONS, data-* parsing, merge
+data/     sounds.ts           pure: normalise, peaks codec, keys, facets, filter, sort
+          url-state.ts        pure: filters <-> the address
+          navigation.ts       pure: key targets, seek steps, paging
+render/   markup.ts           server-safe markup (toolbarPlan, renderMenu, renderRow…)
+          options.ts          render options + validation (DOM-free)
+          html.ts · icons.ts · strings.ts
+dom/      menus.ts            the dropdown controller (+ pure optionMatches/stepIndex)
+          rows.ts             row DOM: read back, index, order, visible
+          draw.ts · colors.ts canvas drawing; colour + page-surface resolution
+shared/   utils.ts            clamp, pointerFraction, isTyping, emit, hashString
 ```
 
 **Layering is enforced by imports, keep it:** `data/` and `shared/` import
@@ -44,9 +47,16 @@ core. Every function and method carries a JSDoc block.
 - **Supplied peaks also stop the hidden engine decoding the file** (the core
   only decodes when it has no peaks). A sound without peaks borrows the
   engine's decoded ones after its first play.
-- **`index.d.ts` is hand-written** and the four `waveform-sounds-*` wrappers
-  derive their props from it. New option → `DEFAULT_OPTIONS` (core/options.js; render-shaping ones in render/options.js),
-  `readDataOptions` (data-* form), `index.d.ts`, and every wrapper's allowlist.
+- **The public types live in `src/js/types.ts`**; `types/` is generated from the
+  source (`build:types`, `stripInternal`: mark internals `/** @internal */`). The
+  four `waveform-sounds-*` wrappers derive their props from `WaveformSoundsOptions`
+  (their drift tests parse it out of a .d.ts in `node_modules`: on 2.0 that is
+  `types/types.d.ts`; the root `index.d.ts` they read up to 0.3.1 is gone). New option → `DEFAULT_OPTIONS`
+  (core/options.ts; render-shaping ones in render/options.ts),
+  `readDataOptions` (data-* form), `types.ts`, and every wrapper's allowlist.
+- **TypeScript, same emitted code.** esbuild reads `tsconfig.esbuild.json`, not
+  `tsconfig.json`: strict mode's `alwaysStrict` would add "use strict" to the
+  IIFE/CJS bundles. Class fields are `declare`d (no emit).
 - **Option precedence is the family's: data-* > constructor > default.**
 - Logging prefix `[WaveformSounds]`. Events are `waveformsounds:*`, bubbling.
 - `render/`, `data/` and `shared/` must stay DOM-free: their tests run in the node
