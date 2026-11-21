@@ -4,7 +4,7 @@ All notable changes to `@arraypress/waveform-sounds` are documented here. The
 format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.1.0] — Unreleased
+## [2.1.0] — 2026-11-21
 
 Fixes from an audit of 2.0.0 in Chromium, Firefox and WebKit (and Chrome
 115–133 / Firefox 115–128 binaries), the `<waveform-sounds>` element, and
