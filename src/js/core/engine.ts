@@ -22,7 +22,7 @@ const CALLBACKS = ['onLoad', 'onPlay', 'onPause', 'onEnd', 'onTimeUpdate', 'onEr
  *   option name (`onPlay`, …).
  * @returns Options for `new WaveformPlayer(el, options)`.
  */
-export function engineOptions(user: Record<string, any> | null | undefined, layout: 'inline' | 'strip', handlers: Record<string, Function>): Record<string, any> {
+export function engineOptions(user: Record<string, any> | null | undefined, layout: 'inline' | 'strip', handlers: Record<string, (...args: any[]) => void>): Record<string, any> {
     const site = user || {};
     const strip = layout === 'strip';
     const options: Record<string, any> = {

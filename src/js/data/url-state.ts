@@ -93,7 +93,7 @@ export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, a
  * @param defaultSort - The starting order (not written).
  * @returns The new href (equal to `href` when nothing changed).
  */
-export function writeUrlState(href: string, keys: ReturnType<typeof urlKeys>, filter: {query: string, type: string, key: string, bpmMin: string, bpmMax: string, loop?: string}, sort: string, defaultSort: string): string {
+export function writeUrlState(href: string, keys: ReturnType<typeof urlKeys>, filter: SoundsFilter, sort: string, defaultSort: string): string {
     if (!keys) return href;
     const url = new URL(href);
     const set = (name: string, v: string | undefined) => (v ? url.searchParams.set(name, v) : url.searchParams.delete(name));
