@@ -13,12 +13,12 @@
 /**
  * The filter for a pair of handle positions.
  *
- * @param {number} lo - The lower handle.
- * @param {number} hi - The upper handle.
- * @param {{min: number, max: number}} extent - The pack's BPM range (`facets().bpm`).
- * @returns {{bpmMin: string, bpmMax: string}} `''` for an open end.
+ * @param lo - The lower handle.
+ * @param hi - The upper handle.
+ * @param extent - The pack's BPM range (`facets().bpm`).
+ * @returns `''` for an open end.
  */
-export function bpmFilterFromRange(lo, hi, extent) {
+export function bpmFilterFromRange(lo: number, hi: number, extent: {min: number, max: number}): {bpmMin: string, bpmMax: string} {
     const a = Math.min(lo, hi), b = Math.max(lo, hi);
     return {
         bpmMin: a > extent.min ? String(a) : '',
@@ -31,12 +31,12 @@ export function bpmFilterFromRange(lo, hi, extent) {
  * set one at its value (clamped into the pack's range, so a link with
  * `?bpm=60-300` still shows sensible handles).
  *
- * @param {{bpmMin?: string|number, bpmMax?: string|number}} filter
- * @param {{min: number, max: number}} extent
- * @returns {{lo: number, hi: number}}
+ * @param filter
+ * @param extent
+ * @returns 
  */
-export function bpmRangeFromFilter(filter, extent) {
-    const read = (v, fallback) => {
+export function bpmRangeFromFilter(filter: {bpmMin?: string|number, bpmMax?: string|number}, extent: {min: number, max: number}): {lo: number, hi: number} {
+    const read = (v: string | number | undefined, fallback: number): number => {
         const n = Number(v);
         return v === '' || v == null || !Number.isFinite(n) ? fallback : Math.min(Math.max(n, extent.min), extent.max);
     };
@@ -48,11 +48,11 @@ export function bpmRangeFromFilter(filter, extent) {
 /**
  * A handle's position along the track, 0..1.
  *
- * @param {number} value
- * @param {{min: number, max: number}} extent
- * @returns {number}
+ * @param value
+ * @param extent
+ * @returns 
  */
-export function bpmFraction(value, extent) {
+export function bpmFraction(value: number, extent: {min: number, max: number}): number {
     const span = extent.max - extent.min;
     return span > 0 ? Math.min(Math.max((value - extent.min) / span, 0), 1) : 0;
 }
@@ -60,9 +60,9 @@ export function bpmFraction(value, extent) {
 /**
  * Is a BPM limit set on either side?
  *
- * @param {{bpmMin?: string|number, bpmMax?: string|number}} filter
- * @returns {boolean}
+ * @param filter
+ * @returns 
  */
-export function hasBpmFilter(filter) {
+export function hasBpmFilter(filter: {bpmMin?: string|number, bpmMax?: string|number}): boolean {
     return (filter.bpmMin != null && filter.bpmMin !== '') || (filter.bpmMax != null && filter.bpmMax !== '');
 }

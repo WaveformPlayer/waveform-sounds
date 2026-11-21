@@ -15,14 +15,14 @@ export const SEEK_STEP = 0.1;
  * Where a navigation key moves from position `at` in a list of `count`
  * visible rows.
  *
- * @param {string} key - `KeyboardEvent.key`.
- * @param {number} at - The focused row's position among the visible rows.
- * @param {number} count - How many rows are visible.
- * @returns {number|'search'|null} The new position; `'search'` for ↑ on
+ * @param key - `KeyboardEvent.key`.
+ * @param at - The focused row's position among the visible rows.
+ * @param count - How many rows are visible.
+ * @returns The new position; `'search'` for ↑ on
  *   the first row (back to the search field); null when the key isn't a
  *   move or there is nowhere to go.
  */
-export function rowTarget(key, at, count) {
+export function rowTarget(key: string, at: number, count: number): number | 'search' | null {
     if (!count) return null;
     switch (key) {
         case 'ArrowDown': return at + 1 < count ? at + 1 : null;
@@ -37,11 +37,11 @@ export function rowTarget(key, at, count) {
  * The position an ←/→ press seeks to. Stops just short of the end, so a
  * held → can't end the sound by accident.
  *
- * @param {number} progress - Current position, 0..1.
- * @param {string} key - `'ArrowRight'` or `'ArrowLeft'`.
- * @returns {number|null} The new position, or null for any other key.
+ * @param progress - Current position, 0..1.
+ * @param key - `'ArrowRight'` or `'ArrowLeft'`.
+ * @returns The new position, or null for any other key.
  */
-export function seekTarget(progress, key) {
+export function seekTarget(progress: number, key: string): number | null {
     if (key !== 'ArrowRight' && key !== 'ArrowLeft') return null;
     return clamp(progress + (key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP), 0, 0.999);
 }
@@ -51,11 +51,11 @@ export function seekTarget(progress, key) {
  * "Show more" would reveal.
  *
  * @template T
- * @param {T[]} shown - The sounds that match, in display order.
- * @param {number} limit - How many to show (Infinity for all).
- * @returns {{visible: Set<T>, remaining: number}}
+ * @param shown - The sounds that match, in display order.
+ * @param limit - How many to show (Infinity for all).
+ * @returns 
  */
-export function pageWindow(shown, limit) {
+export function pageWindow<T>(shown: T[], limit: number): {visible: Set<T>, remaining: number} {
     const visible = new Set(shown.slice(0, limit));
     return {visible, remaining: shown.length - visible.size};
 }
@@ -64,10 +64,10 @@ export function pageWindow(shown, limit) {
  * The page limit that reveals position `pos` (used when playing past the
  * end of the current page, e.g. by `next()` or auto-advance).
  *
- * @param {number} limit - The current limit.
- * @param {number} pos - The position that must be visible.
- * @returns {number}
+ * @param limit - The current limit.
+ * @param pos - The position that must be visible.
+ * @returns 
  */
-export function limitToReveal(limit, pos) {
+export function limitToReveal(limit: number, pos: number): number {
     return pos >= limit ? pos + 1 : limit;
 }
