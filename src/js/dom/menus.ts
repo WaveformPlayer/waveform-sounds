@@ -229,7 +229,7 @@ export class Menus {
      * Keys inside an open menu.
      * @internal
      */
-    _onKey(e: KeyboardEvent, name: string, menu: HTMLElement): void {
+    _onKey(e: KeyboardEvent, name: string, menu: HTMLElement) {
         const p = partsOf(menu);
         const opts = optionsOf(p, true);
         const at = opts.indexOf(p.list!.querySelector<HTMLElement>('.is-active')!);

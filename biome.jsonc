@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["src/**", "test/**"] },
+  // Off for 2.0: reformatting is its own change, once a style is chosen
+  // (src indents 4 spaces, tests use tabs).
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      // 2.0 ships 0.3.1's exact code (the built bundles are compared with
+      // comments stripped). Every rule below is off because its fix would
+      // change emitted code, or because it contradicts something deliberate.
+      // Revisit them together after 2.0, each with its own tests.
+      "style": {
+        "noNonNullAssertion": "off", // deliberate: each `!` marks where the code relies on setup having run
+        "useTemplate": "off",
+        "useExponentiationOperator": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off", // internal anys, to be tightened after 2.0
+        "useIterableCallbackReturn": "off", // expression-bodied forEach callbacks; a block body is different code
+        "noGlobalIsFinite": "off", // isFinite coerces, Number.isFinite does not: a behaviour change
+        "noPrototypeBuiltins": "off",
+        "noConfusingVoidType": "off" // `Promise<boolean> | void` is the documented 1.x return type
+      },
+      "correctness": {
+        "noUnusedVariables": "off",
+        "noUnusedFunctionParameters": "off",
+        "useParseIntRadix": "off" // adding a radix changes how "0x..." parses
+      },
+      "complexity": {
+        "useOptionalChain": "off", // `a && a.b` and `a?.b` differ when a is 0 or ""
+        "noThisInStatic": "off",
+        "useLiteralKeys": "off",
+        "noImportantStyles": "off", // CSS: the !important rules are load-bearing
+        "useMathMinMax": "off" // draw.ts's reduce max and Math.max differ on NaN
+      }
+    }
+  },
+  "css": { "linter": { "enabled": true } },
+  "overrides": [
+    { "includes": ["src/css/**"], "linter": { "rules": { "style": { "noDescendingSpecificity": "off" } } } },
+    // test/setup.js's stand-in player mirrors the core's own load() line by line.
+    { "includes": ["test/**"], "linter": { "rules": { "suspicious": { "noAssignInExpressions": "off" } } } }
+  ]
+}
