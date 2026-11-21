@@ -65,6 +65,20 @@
 }
 .ws-icon { width: 1em; height: 1em; fill: currentColor; flex: none; }
 
+/* ── Controls: shared ────────────────────────────────────────────────── */
+/* The pill-shaped controls share one frame... */
+.ws-search, .ws-menu-btn, .ws-seg, .ws-loop, .ws-chip, .ws-clear, .ws-more {
+    border: 1px solid var(--ws-border);
+    border-radius: var(--ws-control-radius);
+}
+/* ...and every button starts from the text around it. */
+.ws-menu-btn, .ws-bpm-clear, .ws-seg-btn, .ws-loop, .ws-chip, .ws-clear, .ws-more {
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
 /* ── Toolbar ─────────────────────────────────────────────────────────── */
 .ws-toolbar {
     display: flex;
@@ -81,8 +95,6 @@
     min-width: 0;
     height: 2.75rem;
     padding: 0 1rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
     background: var(--ws-field);
     color: inherit;
     cursor: text;
@@ -98,8 +110,7 @@
     font: inherit;
     outline: none;
 }
-.ws-search .ws-icon { color: var(--ws-muted); }
-.ws-search-input::placeholder { color: var(--ws-muted); }
+.ws-search .ws-icon, .ws-search-input::placeholder { color: var(--ws-muted); }
 /* WebKit/Blink's clear button, redrawn in the text colour. The mask stays
  * prefixed: unprefixed `mask` is Chrome/Edge 120+. */
 .ws-search-input::-webkit-search-cancel-button,
@@ -113,7 +124,9 @@
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
+/* The row of menus, the loops filter and the Loop toggle. */
 .ws-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
 /* ── Dropdowns (type / key / sort) ──────────────────────────────────── */
 .ws-menu { position: relative; }
 .ws-menu-btn {
@@ -123,18 +136,13 @@
     height: 2.75rem;
     max-width: 16rem;
     padding: 0 0.85rem 0 1rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
     background: var(--ws-field);
-    color: inherit;
-    font: inherit;
     font-size: 0.9em;
-    cursor: pointer;
 }
 .ws-menu-btn:hover { background: var(--ws-hover); }
 .ws-menu-btn[aria-expanded='true'] { border-color: var(--ws-accent); }
 .ws-menu-prefix { color: var(--ws-muted); }
-.ws-menu-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-menu-value, .ws-menu-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-menu-chevron { font-size: 1.1em; color: var(--ws-muted); transition: transform 0.15s; }
 .ws-menu-btn[aria-expanded='true'] .ws-menu-chevron { transform: rotate(180deg); }
 .ws-menu-pop {
@@ -182,7 +190,7 @@
 .ws-menu-check { visibility: hidden; flex: none; }
 .ws-menu-option[aria-selected='true'] { font-weight: 600; }
 .ws-menu-option[aria-selected='true'] .ws-menu-check { visibility: visible; }
-.ws-menu-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-menu-text { flex: 1; min-width: 0; }
 .ws-menu-count { font-family: var(--ws-mono); font-size: 0.85em; color: var(--ws-muted); }
 .ws-menu-none { margin: 0; padding: 0.6rem; color: var(--ws-muted); font-size: 0.9em; }
 
@@ -190,15 +198,7 @@
 .ws-bpm-pop { width: 17rem; padding: 0.85rem 1rem 0.7rem; }
 .ws-bpm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.6rem; }
 .ws-bpm-readout { font-weight: 600; font-variant-numeric: tabular-nums; }
-.ws-bpm-clear {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--ws-muted);
-    font: inherit;
-    font-size: 0.85em;
-    cursor: pointer;
-}
+.ws-bpm-clear { padding: 0; border: 0; color: var(--ws-muted); font-size: 0.85em; }
 .ws-bpm-clear:hover { color: inherit; text-decoration: underline; }
 
 /* Two native range inputs stacked on one track. The track and the filled
@@ -284,50 +284,35 @@
     font-size: 0.75em;
     font-variant-numeric: tabular-nums;
 }
+
+/* ── Loops or one-shots: a segmented control, one button pressed ─────── */
+.ws-seg {
+    display: inline-flex;
+    height: 2.75rem;
+    padding: 0.25rem;
+    gap: 0.15rem;
+}
+.ws-seg-btn {
+    padding: 0 0.85rem;
+    border: 0;
+    border-radius: var(--ws-control-radius);
+    font-size: 0.88em;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.ws-seg-btn:hover { background: var(--ws-hover); }
+
+/* ── The Loop toggle ─────────────────────────────────────────────────── */
 .ws-loop {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
     height: 2.75rem;
     padding: 0 1rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
-    background: none;
-    color: inherit;
-    font: inherit;
     font-size: 0.9em;
-    cursor: pointer;
 }
-.ws-loop[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); }
-.ws-loop[aria-pressed='true'] > * { color: var(--ws-on-accent); }
 
-/* Loops or one-shots: a segmented control, one button pressed. */
-.ws-seg {
-    display: inline-flex;
-    height: 2.75rem;
-    padding: 0.25rem;
-    gap: 0.15rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
-}
-.ws-seg-btn {
-    padding: 0 0.85rem;
-    border: 0;
-    border-radius: var(--ws-control-radius);
-    background: none;
-    color: inherit;
-    font: inherit;
-    font-size: 0.88em;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.ws-seg-btn:hover { background: var(--ws-hover); }
-/* On the accent the CHILD takes the inverted ink: the button itself never
- * sets a colour (see the pause icon note at the top). */
-.ws-seg-btn[aria-pressed='true'] { background: var(--ws-accent); }
-.ws-seg-btn[aria-pressed='true'] > * { color: var(--ws-on-accent); }
-
+/* ── Type chips and the count ────────────────────────────────────────── */
 .ws-meta { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .ws-types { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1 1 auto; min-width: 0; }
 .ws-chip {
@@ -336,23 +321,25 @@
     gap: 0.4rem;
     height: 2.25rem;
     padding: 0 0.9rem;
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
-    background: none;
-    color: inherit;
-    font: inherit;
     font-size: 0.88em;
-    cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
 }
 .ws-chip:hover { background: var(--ws-hover); }
-.ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); }
-.ws-chip[aria-pressed='true'] > * { color: var(--ws-on-accent); }
 .ws-chip-count { font-family: var(--ws-mono); font-size: 0.85em; opacity: 0.7; }
+.ws-count { margin: 0 0 0 auto; color: var(--ws-muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
+
+/* ── The pressed controls: the accent fill, inverted ink ─────────────── */
+/* After the hovers, so a pressed control keeps its fill under the pointer.
+ * The CHILDREN take the ink, never the button (THE ONE RULE, at the top). */
+.ws-loop[aria-pressed='true'],
+.ws-chip[aria-pressed='true'] { border-color: var(--ws-accent); background: var(--ws-accent); }
+.ws-seg-btn[aria-pressed='true'] { background: var(--ws-accent); }
+.ws-loop[aria-pressed='true'] > *,
+.ws-seg-btn[aria-pressed='true'] > *,
+.ws-chip[aria-pressed='true'] > * { color: var(--ws-on-accent); }
 /* Full ink on the accent: a dimmed count on a saturated fill fails contrast
  * (70% measured 4.04:1 on #ff4f24). */
 .ws-chip[aria-pressed='true'] .ws-chip-count { opacity: 1; }
-.ws-count { margin: 0 0 0 auto; color: var(--ws-muted); font-size: 0.88em; font-variant-numeric: tabular-nums; }
 
 /* ── Rows ────────────────────────────────────────────────────────────── */
 .ws-list {
@@ -375,14 +362,17 @@
 .ws-row.is-current { background: var(--ws-current); }
 .ws-row.is-error .ws-title { text-decoration: line-through; opacity: 0.6; }
 
-.ws-play {
+/* The play button and the download link: round icon buttons. */
+.ws-play, .ws-download {
     flex: none;
     display: grid;
     place-items: center;
     width: 2.25rem;
     height: 2.25rem;
-    border: 0;
     border-radius: 999px;
+}
+.ws-play {
+    border: 0;
     background: var(--ws-field);
     color: inherit;
     font-size: 0.95rem;
@@ -429,12 +419,6 @@
 }
 .ws-canvas { display: block; width: 100%; height: 100%; }
 .ws-download {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 999px;
     color: var(--ws-muted);
     font-size: 1.05rem;
     text-decoration: none;
@@ -472,14 +456,6 @@
 
 /* ── Footer bits ─────────────────────────────────────────────────────── */
 .ws-empty { margin: 1.5rem 0; color: var(--ws-muted); }
-.ws-clear, .ws-more {
-    border: 1px solid var(--ws-border);
-    border-radius: var(--ws-control-radius);
-    background: none;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-}
 .ws-clear { margin-left: 0.5rem; padding: 0.35rem 0.85rem; font-size: 0.88em; }
 .ws-more { display: block; margin: 1.25rem auto 0; padding: 0.7rem 1.4rem; font-size: 0.92em; }
 .ws-more:hover, .ws-clear:hover { background: var(--ws-hover); }
