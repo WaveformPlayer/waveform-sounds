@@ -256,7 +256,9 @@ var DEFAULT_STRINGS = {
   empty: "No sounds match.",
   clear: "Clear filters",
   nowPlaying: "Playing {title}",
-  playError: "Could not play {title}"
+  playError: "Could not play {title}",
+  loadError: "Could not load the sounds.",
+  noSounds: "No sounds."
 };
 var SORT_LABEL_KEYS = {
   default: "sortDefault",

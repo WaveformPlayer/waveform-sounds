@@ -675,7 +675,9 @@
     empty: "No sounds match.",
     clear: "Clear filters",
     nowPlaying: "Playing {title}",
-    playError: "Could not play {title}"
+    playError: "Could not play {title}",
+    loadError: "Could not load the sounds.",
+    noSounds: "No sounds."
   };
   var SORT_LABEL_KEYS = {
     default: "sortDefault",
@@ -1288,7 +1290,9 @@
       _WaveformSounds.instances.set(el, this);
       el.dataset.wsInitialized = "true";
       this.ready = Promise.resolve().then(() => this._init()).catch((err) => {
+        if (this.destroyed) return;
         console.error(`${LOG} Failed to initialise:`, err);
+        this._showLoadError();
         this._emit("error", { error: err });
         this.options.onError?.(err, this);
       });
@@ -1337,9 +1341,24 @@
      */
     async _loadSounds() {
       if (this.options.sounds || !this.options.manifest) return normalizeSounds(this.options.sounds || []);
-      const res = await fetch(this.options.manifest);
-      if (!res.ok) throw new Error(`${LOG} Manifest ${this.options.manifest}: HTTP ${res.status}`);
-      return parseManifest(await res.json());
+      const url = this.options.manifest;
+      const res = await fetch(url, { signal: this._ctl.signal });
+      if (!res.ok) throw new Error(`${LOG} Manifest ${url}: HTTP ${res.status}`);
+      const manifest = await res.json();
+      if (!Array.isArray(manifest) && !Array.isArray(manifest?.sounds)) throw new Error(`${LOG} Manifest ${url}: no "sounds" list`);
+      return parseManifest(manifest);
+    }
+    /**
+     * A build that failed (the manifest 404s, isn't JSON, isn't a manifest)
+     * says so where the list would be — unless the container holds the
+     * site's own fallback, which stays. destroy() restores what was there.
+     * @internal
+     */
+    _showLoadError() {
+      const el = this.container;
+      if (this.$ || el.querySelector("*")) return;
+      this._originalHTML ??= el.innerHTML;
+      el.innerHTML = h("p", { class: "ws-empty ws-load-error", role: "alert", "data-ws-load-error": true }, text(this.strings.loadError));
     }
     /**
      * Look up the elements the runtime drives.
@@ -1744,7 +1763,10 @@
         $.more.hidden = remaining <= 0;
         $.more.textContent = fill(this.strings.showMore, { count: Math.min(remaining, this.render.pageSize || remaining) });
       }
-      if ($.empty) $.empty.hidden = shown.length > 0;
+      if ($.empty) {
+        $.empty.hidden = shown.length > 0;
+        if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
+      }
       if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
       if (this._cued && !this.playing) this._cueFirst();
       this._queueUrl();

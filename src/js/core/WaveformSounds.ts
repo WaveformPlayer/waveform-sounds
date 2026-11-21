@@ -40,6 +40,7 @@ import {bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.j
 import {pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
+import {h, text} from '../render/html.js';
 import type {decodePeaks, encodePeaks, formatDuration, normalizeKey} from '../data/sounds.js';
 import type {EngineTrack} from './engine.js';
 import type {RenderOptions} from '../render/options.js';
@@ -205,7 +206,9 @@ export class WaveformSounds {
         // through onError / `waveformsounds:error`.
         /** Resolves once the list is built (after a manifest fetch, if any). */
         this.ready = Promise.resolve().then(() => this._init()).catch((err) => {
+            if (this.destroyed) return; // e.g. the manifest fetch, aborted by destroy()
             console.error(`${LOG} Failed to initialise:`, err);
+            this._showLoadError();
             this._emit('error', {error: err});
             this.options.onError?.(err, this);
         });
@@ -276,9 +279,27 @@ export class WaveformSounds {
      */
     async _loadSounds(): Promise<Sound[]> {
         if (this.options.sounds || !this.options.manifest) return normalizeSounds(this.options.sounds || []);
-        const res = await fetch(this.options.manifest);
-        if (!res.ok) throw new Error(`${LOG} Manifest ${this.options.manifest}: HTTP ${res.status}`);
-        return parseManifest(await res.json());
+        const url = this.options.manifest;
+        // destroy() aborts it: a list torn down mid-fetch never builds.
+        const res = await fetch(url, {signal: this._ctl.signal});
+        if (!res.ok) throw new Error(`${LOG} Manifest ${url}: HTTP ${res.status}`);
+        const manifest = await res.json();
+        // Not a list of sounds at all is a broken manifest, not an empty pack.
+        if (!Array.isArray(manifest) && !Array.isArray(manifest?.sounds)) throw new Error(`${LOG} Manifest ${url}: no "sounds" list`);
+        return parseManifest(manifest);
+    }
+
+    /**
+     * A build that failed (the manifest 404s, isn't JSON, isn't a manifest)
+     * says so where the list would be — unless the container holds the
+     * site's own fallback, which stays. destroy() restores what was there.
+     * @internal
+     */
+    _showLoadError(): void {
+        const el = this.container;
+        if (this.$ || el.querySelector('*')) return;
+        this._originalHTML ??= el.innerHTML;
+        el.innerHTML = h('p', {class: 'ws-empty ws-load-error', role: 'alert', 'data-ws-load-error': true}, text(this.strings.loadError));
     }
 
     /**
@@ -700,7 +721,12 @@ export class WaveformSounds {
             $.more.hidden = remaining <= 0;
             $.more.textContent = fill(this.strings.showMore, {count: Math.min(remaining, this.render.pageSize || remaining)});
         }
-        if ($.empty) $.empty.hidden = shown.length > 0;
+        if ($.empty) {
+            $.empty.hidden = shown.length > 0;
+            // No sounds at all: nothing matches because there is nothing, and
+            // there is no filter to clear.
+            if (!this.sounds.length && $.empty.textContent !== this.strings.noSounds) $.empty.textContent = this.strings.noSounds;
+        }
         if ($.count) $.count.textContent = countText(shown.length, this.sounds.length, this.strings);
         // Nothing played yet: keep the cued sound one the list still shows.
         if (this._cued && !this.playing) this._cueFirst();

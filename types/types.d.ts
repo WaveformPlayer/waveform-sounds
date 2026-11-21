@@ -131,6 +131,11 @@ export interface WaveformSoundsStrings {
     nowPlaying: string;
     /** Announced when a sound fails to load or play. Since 2.1.0. */
     playError: string;
+    /** Shown in place of the list when it can't be built (the manifest
+     *  fails to load or isn't a manifest). Since 2.1.0. */
+    loadError: string;
+    /** The empty state of a list with no sounds at all. Since 2.1.0. */
+    noSounds: string;
 }
 export interface WaveformSoundsOptions {
     /** The sounds. Or `manifest`, or server-rendered rows in the container. */

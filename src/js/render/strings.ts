@@ -50,6 +50,8 @@ export const DEFAULT_STRINGS: WaveformSoundsStrings = {
     clear: 'Clear filters',
     nowPlaying: 'Playing {title}',
     playError: 'Could not play {title}',
+    loadError: 'Could not load the sounds.',
+    noSounds: 'No sounds.',
 };
 
 /** The label each sort order shows in the Sort menu. */

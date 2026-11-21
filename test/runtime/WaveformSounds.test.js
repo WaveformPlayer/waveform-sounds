@@ -65,8 +65,61 @@ describe('building the list', () => {
         vi.stubGlobal('fetch', fetchMock);
         const ws = new WaveformSounds(host, {manifest: '/sounds.json'});
         await ws.ready;
-        expect(fetchMock).toHaveBeenCalledWith('/sounds.json');
+        expect(fetchMock).toHaveBeenCalledWith('/sounds.json', expect.objectContaining({signal: expect.any(AbortSignal)}));
         expect(rows()).toHaveLength(2);
+        vi.unstubAllGlobals();
+    });
+
+    it.each([
+        ['a 404', async () => ({ok: false, status: 404, json: async () => ({})})],
+        ['invalid JSON', async () => ({ok: true, json: async () => { throw new SyntaxError('Unexpected end of JSON input'); }})],
+        ['not a manifest', async () => ({ok: true, json: async () => ({sounds: 'nope'})})],
+    ])('a manifest that fails (%s) shows an error where the list would be, and reports it', async (_, response) => {
+        vi.stubGlobal('fetch', vi.fn(response));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const onError = vi.fn();
+        const ws = new WaveformSounds(host, {manifest: '/sounds.json', onError, strings: {loadError: 'Geen geluiden geladen.'}});
+        await ws.ready;
+        const p = host.querySelector('[data-ws-load-error]');
+        expect(p.textContent).toBe('Geen geluiden geladen.');
+        expect(p.getAttribute('role')).toBe('alert');
+        expect(onError).toHaveBeenCalledOnce();
+        ws.destroy();
+        expect(host.innerHTML).toBe('');
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('a failed build leaves the site\'s own fallback content alone', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => ({ok: false, status: 500})));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        host.innerHTML = '<a href="/pack.zip">Download the pack</a>';
+        const ws = new WaveformSounds(host, {manifest: '/sounds.json'});
+        await ws.ready;
+        expect(host.innerHTML).toBe('<a href="/pack.zip">Download the pack</a>');
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('an empty pack says so, with no "No sounds match" and nothing to clear', async () => {
+        await make({sounds: []});
+        const empty = host.querySelector('[data-ws-empty]');
+        expect(empty.hidden).toBe(false);
+        expect(empty.textContent).toBe('No sounds.');
+        expect(empty.querySelector('[data-ws-clear]')).toBeNull();
+    });
+
+    it('destroy() during the manifest fetch aborts it, quietly', async () => {
+        let signal;
+        vi.stubGlobal('fetch', vi.fn((url, init) => { signal = init.signal; return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))); }));
+        const onError = vi.fn();
+        const ws = new WaveformSounds(host, {manifest: '/sounds.json', onError});
+        await settle();
+        ws.destroy();
+        await ws.ready;
+        expect(signal.aborted).toBe(true);
+        expect(onError).not.toHaveBeenCalled();
+        expect(host.innerHTML).toBe('');
         vi.unstubAllGlobals();
     });
 
