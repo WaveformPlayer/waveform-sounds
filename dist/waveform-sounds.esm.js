@@ -1411,7 +1411,6 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
   }
   /**
    * The sounds from the `sounds` option, else the `manifest` URL.
-   * @returns 
    * @internal
    */
   async _loadSounds() {
@@ -1816,6 +1815,13 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
   /* ── Filtering, sorting, paging ───────────────────────────────────── */
   /** The sounds that pass the filter, in the current sort order. */
   get visible() {
+    return [...this._shown ?? this._match()];
+  }
+  /**
+   * Filter and sort the sounds now.
+   * @internal
+   */
+  _match() {
     return sortSounds(this.sounds.filter((s) => matches(s, this.filter)), this.sortBy);
   }
   setFilter(patch = {}) {
@@ -1898,10 +1904,12 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
     const $ = this.$;
     if (!$) return;
     if (resort || this.sortBy !== this._lastSort) {
-      orderRows($.list, sortSounds(this.sounds, this.sortBy).map((s) => this.rows[this.sounds.indexOf(s)]));
+      const index = new Map(this.sounds.map((s, i) => [s, i]));
+      orderRows($.list, sortSounds(this.sounds, this.sortBy).map((s) => this.rows[index.get(s)]));
       this._lastSort = this.sortBy;
     }
-    const shown = this.visible;
+    const shown = this._match();
+    this._shown = shown;
     const { visible, remaining } = pageWindow(shown, this.limit);
     this.sounds.forEach((s, i) => {
       if (this.rows[i]) this.rows[i].hidden = !visible.has(s);
@@ -1937,18 +1945,20 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
    * target means the current sound, else the first visible one.
    *
    * @param target
-   * @returns 
    * @internal
    */
   _indexOf(target) {
-    if (target == null) return this.currentIndex ?? (this.visible[0] ? this.sounds.indexOf(this.visible[0]) : null);
+    if (target == null) {
+      if (this.currentIndex != null) return this.currentIndex;
+      const first = (this._shown ?? this._match())[0];
+      return first ? this.sounds.indexOf(first) : null;
+    }
     if (typeof target === "number") return this.sounds[target] ? target : null;
     const i = typeof target === "object" ? this.sounds.indexOf(target) : this.sounds.findIndex((s) => s.id === String(target));
     return i >= 0 ? i : null;
   }
   /**
    * The WaveformPlayer class: `playerClass`, else the page's global.
-   * @returns 
    * @internal
    */
   _playerClass() {
@@ -1967,7 +1977,6 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
    * which would strip `ws-engine--strip` (and with it the docked styling).
    * Made here rather than in the markup so server-rendered HTML from any
    * version works.
-   * @returns 
    * @internal
    */
   _engineMount() {
@@ -2049,7 +2058,7 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
    */
   _cueFirst() {
     const engine = this._eng();
-    const first = this.visible[0];
+    const first = (this._shown ?? this._match())[0];
     if (!engine || !first) return;
     const index = this.sounds.indexOf(first);
     if (index === this.currentIndex) return;
@@ -2097,7 +2106,7 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
    * @internal
    */
   _step(dir) {
-    const shown = this.visible;
+    const shown = this._shown ?? this._match();
     const at = this.currentIndex == null || this._cued ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
     const target = shown[at + dir];
     if (!target) return false;
@@ -2374,7 +2383,6 @@ var WaveformSounds = class _WaveformSounds extends EventTarget {
   /**
    * The instance on an element (or selector), if any.
    * @param el
-   * @returns 
    */
   static getInstance(el) {
     const node = typeof el === "string" ? document.querySelector(el) : el;

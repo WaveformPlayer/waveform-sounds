@@ -47,7 +47,6 @@ export declare function bpmFilterFromRange(lo: number, hi: number, extent: {
  *
  * @param filter
  * @param extent
- * @returns
  */
 export declare function bpmRangeFromFilter(filter: {
     bpmMin?: string | number;
@@ -64,7 +63,6 @@ export declare function bpmRangeFromFilter(filter: {
  *
  * @param value
  * @param extent
- * @returns
  */
 export declare function bpmFraction(value: number, extent: {
     min: number;
@@ -74,7 +72,6 @@ export declare function bpmFraction(value: number, extent: {
  * Is a BPM limit set on either side?
  *
  * @param filter
- * @returns
  */
 export declare function hasBpmFilter(filter: {
     bpmMin?: string | number;

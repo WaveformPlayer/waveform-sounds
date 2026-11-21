@@ -11,7 +11,6 @@
  *
  * @param path - The SVG path data.
  * @param extraClass - Classes beyond `ws-icon`.
- * @returns 
  */
 function icon(path: string, extraClass: string = ''): string {
     const cls = extraClass ? `ws-icon ${extraClass}` : 'ws-icon';

@@ -12,7 +12,6 @@ export declare const LOG = "[WaveformSounds]";
  * @param value
  * @param min
  * @param max
- * @returns
  */
 export declare function clamp(value: number, min?: number, max?: number): number;
 /**
@@ -32,7 +31,6 @@ export declare function pointerFraction(clientX: number, rect: {
  * must not fire there.
  *
  * @param el
- * @returns
  */
 export declare function isTyping(el: Element | null | undefined): boolean;
 /**

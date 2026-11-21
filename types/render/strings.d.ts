@@ -15,7 +15,6 @@ export declare const SORT_LABEL_KEYS: Record<SoundsSort, keyof WaveformSoundsStr
  *
  * @param template
  * @param vars
- * @returns
  */
 export declare function fill(template: string, vars?: Record<string, string | number>): string;
 /**
@@ -25,7 +24,6 @@ export declare function fill(template: string, vars?: Record<string, string | nu
  * @param filter
  * @param extent - The pack's BPM range.
  * @param strings
- * @returns
  */
 export declare function bpmLabel(filter: {
     bpmMin?: string | number;
@@ -40,7 +38,6 @@ export declare function bpmLabel(filter: {
  * @param shown - Sounds matching the filter.
  * @param total - All sounds.
  * @param strings
- * @returns
  */
 export declare function countText(shown: number, total: number, strings?: typeof DEFAULT_STRINGS): string;
 //# sourceMappingURL=strings.d.ts.map

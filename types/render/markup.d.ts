@@ -41,7 +41,6 @@ export declare function idBase(sounds: {
  *
  * @param f - The sounds' facets.
  * @param o - Resolved options.
- * @returns
  */
 export declare function toolbarPlan(f: ReturnType<typeof facets>, o: ReturnType<typeof resolveRenderOptions>): {
     types: 'chips' | 'menu' | null;
@@ -60,7 +59,6 @@ export declare function toolbarPlan(f: ReturnType<typeof facets>, o: ReturnType<
  *
  * @param loop - The `loop` option.
  * @param f - The sounds' facets.
- * @returns
  */
 export declare function loopsByDefault(loop: boolean | null | undefined, f: {
     loops: number;
@@ -95,7 +93,6 @@ export interface MenuSpec {
  * @param m.searchFrom - Options above which a search field is added.
  * @param [m.placeholder] - The search field's placeholder (no field without one).
  * @param m.noMatches - Shown when the search matches nothing.
- * @returns
  */
 export declare function renderMenu(name: string, m: MenuSpec): string;
 /**
@@ -108,7 +105,6 @@ export declare function renderMenu(name: string, m: MenuSpec): string;
  * @param index
  * @param o
  * @param hidden - Past the first page.
- * @returns
  */
 export declare function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, hidden?: boolean): string;
 /**
@@ -140,7 +136,6 @@ export declare function renderOptionAttributes(options?: WaveformSoundsOptions):
  * @param sounds
  * @param options
  * @param className - Extra classes for the wrapper.
- * @returns
  */
 export declare function renderSoundsElement(sounds: SoundInput[], options?: WaveformSoundsOptions, className?: string): string;
 //# sourceMappingURL=markup.d.ts.map

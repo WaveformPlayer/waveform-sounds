@@ -361,6 +361,18 @@ describe('filtering, sorting and paging', () => {
         expect(host.querySelector('[data-ws-empty]').hidden).toBe(true);
     });
 
+    it('visible follows every filter and sort change, and is a copy', async () => {
+        const ws = await make();
+        ws.setFilter({type: 'Bass'});
+        ws.setSort('bpm');
+        const v = ws.visible;
+        expect(v.map((s) => s.title)).toEqual(['Bass Loop 02', 'Bass Loop 01']);
+        v.length = 0;
+        expect(ws.visible).toHaveLength(2);
+        ws.clearFilters();
+        expect(ws.visible.map((s) => s.title)).toEqual(['Bass Loop 02', 'Bass Loop 01', 'Drum Loop 01', 'Crash']);
+    });
+
     it('sorting reorders the rows in the DOM', async () => {
         const ws = await make();
         ws.setSort('bpm');

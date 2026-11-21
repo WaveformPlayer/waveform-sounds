@@ -50,7 +50,6 @@ export function idBase(sounds: {url: string}[]): string {
  *
  * @param f - The sounds' facets.
  * @param o - Resolved options.
- * @returns 
  */
 export function toolbarPlan(f: ReturnType<typeof facets>, o: ReturnType<typeof resolveRenderOptions>): {types: 'chips'|'menu'|null, key: boolean, bpm: boolean, loops: boolean, sorts: string[], search: boolean, loop: boolean, count: boolean} {
     const typed = o.filters.includes('type') && f.types.length > 1;
@@ -74,7 +73,6 @@ export function toolbarPlan(f: ReturnType<typeof facets>, o: ReturnType<typeof r
  *
  * @param loop - The `loop` option.
  * @param f - The sounds' facets.
- * @returns 
  */
 export function loopsByDefault(loop: boolean | null | undefined, f: {loops: number}): boolean {
     return loop == null ? f.loops > 0 : !!loop;
@@ -127,7 +125,6 @@ function renderSearch(s: WaveformSoundsStrings): string {
  * @param m.searchFrom - Options above which a search field is added.
  * @param [m.placeholder] - The search field's placeholder (no field without one).
  * @param m.noMatches - Shown when the search matches nothing.
- * @returns 
  */
 export function renderMenu(name: string, m: MenuSpec): string {
     const listId = `${m.id}-${name}-list`;
@@ -173,7 +170,6 @@ export function renderMenu(name: string, m: MenuSpec): string {
  * @param m.s
  * @param m.range - The slider's range: the pack's, widened to whole BPMs
  *   ({@link bpmExtent}; a pack of whole BPMs renders as it always did).
- * @returns 
  */
 function renderBpmMenu({id, s, range}: {id: string, s: WaveformSoundsStrings, range: {min: number, max: number}}): string {
     const popId = `${id}-bpm-pop`;
@@ -228,7 +224,6 @@ function renderChip(value: string, label: string, count: number, pressed: boolea
  *
  * @param plan
  * @param ctx - `{o, s, f, total, id}` from {@link renderSounds}.
- * @returns 
  */
 function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id}: RenderContext): string {
     const menu = (name: string, m: Omit<MenuSpec, 'id' | 'searchFrom' | 'noMatches'>) => renderMenu(name, {id, searchFrom: o.menuSearch, noMatches: s.noMatches, ...m});
@@ -284,7 +279,6 @@ const CELLS: Record<string, (sound: Sound) => string> = {
  * @param index
  * @param o
  * @param hidden - Past the first page.
- * @returns 
  */
 export function renderRow(sound: Sound, index: number, o: ReturnType<typeof resolveRenderOptions>, hidden: boolean = false): string {
     const s = o.strings;
@@ -401,7 +395,6 @@ export function renderOptionAttributes(options: WaveformSoundsOptions = {}): Rec
  * @param sounds
  * @param options
  * @param className - Extra classes for the wrapper.
- * @returns 
  */
 export function renderSoundsElement(sounds: SoundInput[], options: WaveformSoundsOptions = {}, className: string = ''): string {
     const o = resolveRenderOptions(options);

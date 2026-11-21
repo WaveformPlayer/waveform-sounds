@@ -28,14 +28,12 @@ export declare function parseBool(value: string | undefined): boolean | undefine
  * is an empty list (e.g. `data-sorts=""` = no sort menu).
  *
  * @param value
- * @returns
  */
 export declare function parseList(value: string | undefined): string[] | undefined;
 /**
  * A number attribute; an empty string is "not set".
  *
  * @param value
- * @returns
  */
 export declare function parseNumber(value: string | undefined): number | undefined;
 /**
@@ -43,7 +41,6 @@ export declare function parseNumber(value: string | undefined): number | undefin
  * the parameter prefix.
  *
  * @param value
- * @returns
  */
 export declare function parseUrlState(value: string | undefined): boolean | string | undefined;
 /**
@@ -53,7 +50,6 @@ export declare function parseUrlState(value: string | undefined): boolean | stri
  *
  * @param value
  * @param name - The attribute name, for the warning.
- * @returns
  */
 export declare function parseJson(value: string | undefined, name: string): Record<string, any> | undefined;
 /**
@@ -70,7 +66,6 @@ export declare function readDataOptions(el: HTMLElement): Record<string, any>;
  * overwrite (an unset prop must not erase a default).
  *
  * @param sources
- * @returns
  */
 export declare function mergeOptions(...sources: (Record<string, any> | null | undefined)[]): Record<string, any>;
 //# sourceMappingURL=options.d.ts.map

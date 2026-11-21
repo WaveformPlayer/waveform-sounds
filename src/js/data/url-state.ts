@@ -18,7 +18,6 @@ import type {SoundsFilter, SoundsLoopFilter} from '../types.js';
  * page don't share a filter.
  *
  * @param urlState
- * @returns 
  */
 export function urlKeys(urlState: boolean | string | null | undefined): {q: string, type: string, key: string, bpm: string, loop: string, sort: string} | null {
     if (!urlState) return null;
@@ -63,7 +62,6 @@ export function bpmRangeWithin(range: {bpmMin: string, bpmMax: string}, extent: 
  *
  * @param min
  * @param max
- * @returns 
  */
 export function formatBpmRange(min: string | number | null | undefined, max: string | number | null | undefined): string {
     const lo = min ?? '', hi = max ?? '';

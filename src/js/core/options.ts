@@ -63,7 +63,6 @@ export function parseBool(value: string | undefined): boolean | undefined {
  * is an empty list (e.g. `data-sorts=""` = no sort menu).
  *
  * @param value
- * @returns 
  */
 export function parseList(value: string | undefined): string[] | undefined {
     if (value == null) return undefined;
@@ -74,7 +73,6 @@ export function parseList(value: string | undefined): string[] | undefined {
  * A number attribute; an empty string is "not set".
  *
  * @param value
- * @returns 
  */
 export function parseNumber(value: string | undefined): number | undefined {
     return value === undefined || value === '' ? undefined : Number(value);
@@ -85,7 +83,6 @@ export function parseNumber(value: string | undefined): number | undefined {
  * the parameter prefix.
  *
  * @param value
- * @returns 
  */
 export function parseUrlState(value: string | undefined): boolean | string | undefined {
     if (value === undefined) return undefined;
@@ -100,7 +97,6 @@ export function parseUrlState(value: string | undefined): boolean | string | und
  *
  * @param value
  * @param name - The attribute name, for the warning.
- * @returns 
  */
 export function parseJson(value: string | undefined, name: string): Record<string, any> | undefined {
     if (!value) return undefined;
@@ -156,7 +152,6 @@ export function readDataOptions(el: HTMLElement): Record<string, any> {
  * overwrite (an unset prop must not erase a default).
  *
  * @param sources
- * @returns 
  */
 export function mergeOptions(...sources: (Record<string, any> | null | undefined)[]): Record<string, any> {
     const out: Record<string, any> = {};

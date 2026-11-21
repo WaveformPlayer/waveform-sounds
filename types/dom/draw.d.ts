@@ -38,7 +38,6 @@ export declare function resample(peaks: number[], count: number): any[];
  * @param width - Canvas width (CSS px).
  * @param height - Canvas height (CSS px).
  * @param o
- * @returns
  */
 export declare function barRects(peaks: number[], width: number, height: number, o: {
     style: 'mirror' | 'bars';

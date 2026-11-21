@@ -25,7 +25,6 @@ const VOID = new Set(['input', 'br', 'img']);
  * Escape text for use as a child.
  *
  * @param value
- * @returns 
  */
 export function text(value: unknown): string {
     return escapeHtml(value ?? '');
@@ -52,7 +51,6 @@ export function attrs(map: HtmlAttrs = {}): string {
  * @param tag
  * @param attributes
  * @param children - HTML strings; falsy ones and nested arrays are flattened away.
- * @returns 
  */
 export function h(tag: string, attributes: HtmlAttrs = {}, ...children: HtmlChild[]): string {
     const open = `<${tag}${attrs(attributes)}>`;

@@ -150,7 +150,6 @@ export function formatClock(seconds: number): string {
 /**
  * Parse a duration given as seconds (8.02) or as "m:ss" / "h:mm:ss".
  * @param value
- * @returns 
  */
 export function parseDuration(value: number | string | null | undefined): number | null {
     if (value == null || value === '') return null;
@@ -168,7 +167,6 @@ export function parseDuration(value: number | string | null | undefined): number
  * leading pack prefixes kept (they are often the label's code).
  * "NW_Bass_Loop_04_128_Fmin.wav" → "NW Bass Loop 04 128 Fmin".
  * @param url
- * @returns 
  */
 export function titleFromUrl(url: string): string {
     const file = String(url || '').split(/[?#]/)[0].split('/').pop() || '';
@@ -222,7 +220,6 @@ export const LOOP_FILTERS = ['loop', 'one-shot'];
  * as an attribute or a CSV-ish manifest writes it. Unset is a one-shot.
  *
  * @param value
- * @returns 
  */
 export function isLoop(value: unknown): boolean {
     return value === true || value === 1 || value === 'true' || value === '1';
@@ -234,7 +231,6 @@ export function isLoop(value: unknown): boolean {
  * Sounds without a url are dropped.
  *
  * @param manifest
- * @returns 
  */
 export function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[] {
     const list = Array.isArray(manifest) ? manifest : Array.isArray(manifest?.sounds) ? manifest.sounds : [];
@@ -247,7 +243,6 @@ export function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[] 
  * (a repeated id would make two rows answer to one play() call).
  * @param list
  * @param peakScale
- * @returns 
  */
 export function normalizeSounds(list: SoundInput[], peakScale: number = 1): Sound[] {
     const seen = new Set<string>();
@@ -271,7 +266,6 @@ export function normalizeSounds(list: SoundInput[], peakScale: number = 1): Soun
  * offer is not rendered.
  *
  * @param sounds
- * @returns 
  */
 export function facets(sounds: Sound[]): {types: {name: string, count: number}[], keys: string[], bpm: {min: number, max: number}|null, hasDuration: boolean, loops: number, oneShots: number} {
     const types = new Map<string, number>();
@@ -306,7 +300,6 @@ export function facets(sounds: Sound[]): {types: {name: string, count: number}[]
  *
  * @param sound
  * @param filter
- * @returns 
  */
 export function matches(sound: Sound, filter: Partial<SoundsFilter> = {}): boolean {
     if (filter.type && sound.type !== filter.type) return false;
@@ -351,7 +344,6 @@ const SORT_NEEDS: Record<string, (f: ReturnType<typeof facets>) => boolean> = {
  *
  * @param sorts - The configured orders.
  * @param f - The sounds' facets.
- * @returns 
  */
 export function availableSorts(sorts: string[], f: ReturnType<typeof facets>): string[] {
     return sorts.filter((sort) => SORT_NEEDS[sort]?.(f));
@@ -363,7 +355,6 @@ export function availableSorts(sorts: string[], f: ReturnType<typeof facets>): s
  *
  * @param sounds
  * @param by
- * @returns 
  */
 export function sortSounds(sounds: Sound[], by: SoundsSort = 'default'): Sound[] {
     const list = sounds.map((s, i) => ({s, i}));

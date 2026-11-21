@@ -66,7 +66,6 @@ export function pickRenderOptions(options: WaveformSoundsOptions | null | undefi
  * a default).
  *
  * @param obj
- * @returns 
  */
 export function defined(obj: Record<string, any> | null | undefined): Record<string, any> {
     const out: Record<string, any> = {};
@@ -81,7 +80,6 @@ export function defined(obj: Record<string, any> | null | undefined): Record<str
  * @param values
  * @param allowed
  * @param fallback
- * @returns 
  */
 export function allowedList<T extends string>(values: unknown, allowed: T[], fallback: T[]): T[] {
     return Array.isArray(values) ? values.filter((v) => allowed.includes(v)) : fallback;
@@ -92,7 +90,6 @@ export function allowedList<T extends string>(values: unknown, allowed: T[], fal
  *
  * @param value
  * @param fallback
- * @returns 
  */
 export function wholeNumber(value: unknown, fallback: number): number {
     const n = Number(value);
@@ -104,7 +101,6 @@ export function wholeNumber(value: unknown, fallback: number): number {
  * columns are dropped, counts are whole numbers, `strings` is complete.
  *
  * @param options
- * @returns 
  */
 export function resolveRenderOptions(options: WaveformSoundsOptions = {}): RenderOptions {
     const o = {...RENDER_DEFAULTS, ...defined(options)};

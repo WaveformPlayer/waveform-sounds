@@ -187,6 +187,7 @@ export class WaveformSounds extends EventTarget {
     /** @internal */ declare _autoSurface: boolean | undefined;
     /** @internal */ declare _urlTimer: number | undefined;
     /** @internal */ declare _cued: boolean | undefined;
+    /** @internal The sounds the last layout shows, in order (see `visible`). */ declare _shown: Sound[] | undefined;
     /** @internal The engine's own `preload` (a cue uses 'none'). */ declare _preload: string | undefined;
     /** @internal The row holding the list's one Tab stop. */ declare _active: HTMLElement | null;
     /** @internal The sound last reported as playing (its pause not yet reported). */ declare _announced: number | null | undefined;
@@ -300,7 +301,6 @@ export class WaveformSounds extends EventTarget {
 
     /**
      * The sounds from the `sounds` option, else the `manifest` URL.
-     * @returns 
      * @internal
      */
     async _loadSounds(): Promise<Sound[]> {
@@ -730,6 +730,16 @@ export class WaveformSounds extends EventTarget {
 
     /** The sounds that pass the filter, in the current sort order. */
     get visible(): Sound[] {
+        // Laid out by the last _apply(), which runs on every filter or sort
+        // change; computed afresh only before the list is built.
+        return [...(this._shown ?? this._match())];
+    }
+
+    /**
+     * Filter and sort the sounds now.
+     * @internal
+     */
+    _match(): Sound[] {
         return sortSounds(this.sounds.filter((s) => matches(s, this.filter)), this.sortBy);
     }
 
@@ -830,10 +840,14 @@ export class WaveformSounds extends EventTarget {
         const $ = this.$;
         if (!$) return;
         if (resort || this.sortBy !== this._lastSort) {
-            orderRows($.list, sortSounds(this.sounds, this.sortBy).map((s) => this.rows[this.sounds.indexOf(s)]));
+            // Each sound's row by identity: a Map, not indexOf per sound
+            // (quadratic — 1000 sounds was a million comparisons a sort).
+            const index = new Map(this.sounds.map((s, i) => [s, i]));
+            orderRows($.list, sortSounds(this.sounds, this.sortBy).map((s) => this.rows[index.get(s)!]));
             this._lastSort = this.sortBy;
         }
-        const shown = this.visible;
+        const shown = this._match();
+        this._shown = shown;
         const {visible, remaining} = pageWindow(shown, this.limit);
         this.sounds.forEach((s, i) => { if (this.rows[i]) this.rows[i].hidden = !visible.has(s); });
         if ($.more) {
@@ -872,11 +886,14 @@ export class WaveformSounds extends EventTarget {
      * target means the current sound, else the first visible one.
      *
      * @param target
-     * @returns 
      * @internal
      */
     _indexOf(target?: number | string | Sound | null): number | null {
-        if (target == null) return this.currentIndex ?? (this.visible[0] ? this.sounds.indexOf(this.visible[0]) : null);
+        if (target == null) {
+            if (this.currentIndex != null) return this.currentIndex;
+            const first = (this._shown ?? this._match())[0];
+            return first ? this.sounds.indexOf(first) : null;
+        }
         if (typeof target === 'number') return this.sounds[target] ? target : null;
         const i = typeof target === 'object' ? this.sounds.indexOf(target) : this.sounds.findIndex((s) => s.id === String(target));
         return i >= 0 ? i : null;
@@ -884,7 +901,6 @@ export class WaveformSounds extends EventTarget {
 
     /**
      * The WaveformPlayer class: `playerClass`, else the page's global.
-     * @returns 
      * @internal
      */
     _playerClass(): EngineClass | null {
@@ -905,7 +921,6 @@ export class WaveformSounds extends EventTarget {
      * which would strip `ws-engine--strip` (and with it the docked styling).
      * Made here rather than in the markup so server-rendered HTML from any
      * version works.
-     * @returns 
      * @internal
      */
     _engineMount(): HTMLElement {
@@ -985,7 +1000,7 @@ export class WaveformSounds extends EventTarget {
      */
     _cueFirst(): void {
         const engine = this._eng();
-        const first = this.visible[0];
+        const first = (this._shown ?? this._match())[0];
         if (!engine || !first) return;
         const index = this.sounds.indexOf(first);
         if (index === this.currentIndex) return;
@@ -1038,7 +1053,7 @@ export class WaveformSounds extends EventTarget {
      * @internal
      */
     _step(dir: 1 | -1): boolean {
-        const shown = this.visible;
+        const shown = this._shown ?? this._match();
         // A cued sound counts as nothing played: next() starts with it.
         const at = this.currentIndex == null || this._cued ? -1 : shown.indexOf(this.sounds[this.currentIndex]);
         const target = shown[at + dir];
@@ -1321,7 +1336,6 @@ export class WaveformSounds extends EventTarget {
     /**
      * The instance on an element (or selector), if any.
      * @param el
-     * @returns 
      */
     static getInstance(el: Element | string): WaveformSounds | null {
         const node = typeof el === 'string' ? document.querySelector(el) : el;

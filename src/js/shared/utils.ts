@@ -14,7 +14,6 @@ export const LOG = '[WaveformSounds]';
  * @param value
  * @param min
  * @param max
- * @returns 
  */
 export function clamp(value: number, min: number = 0, max: number = 1): number {
     return Math.min(Math.max(value, min), max);
@@ -37,7 +36,6 @@ export function pointerFraction(clientX: number, rect: {left: number, width: num
  * must not fire there.
  *
  * @param el
- * @returns 
  */
 export function isTyping(el: Element | null | undefined): boolean {
     return !!el && ((el as HTMLElement).isContentEditable || /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName));

@@ -33,7 +33,6 @@ export declare function engineOptions(user: Record<string, any> | null | undefin
  *
  * @param sound
  * @param layout
- * @returns
  */
 export declare function enginePeaks(sound: {
     peaks: number[] | null;
@@ -63,7 +62,6 @@ export interface EngineTrack {
  * @param layout
  * @param autoplay - Start once loaded (false: cue only).
  * @param preload - The media element's `preload` for this sound.
- * @returns
  */
 export declare function engineTrack(sound: {
     peaks: number[] | null;

@@ -23,7 +23,6 @@ import {fold} from '@arraypress/text';
  *
  * @param label
  * @param query
- * @returns 
  */
 export function optionMatches(label: string, query: string): boolean {
     const q = fold(String(query ?? '')).trim();
@@ -36,7 +35,6 @@ export function optionMatches(label: string, query: string): boolean {
  * @param current - -1 when nothing is active.
  * @param delta
  * @param length
- * @returns 
  */
 export function stepIndex(current: number, delta: number, length: number): number {
     return Math.max(0, Math.min(length - 1, current + delta));

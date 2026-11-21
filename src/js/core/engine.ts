@@ -67,7 +67,6 @@ export function engineOptions(user: Record<string, any> | null | undefined, layo
  *
  * @param sound
  * @param layout
- * @returns 
  */
 export function enginePeaks(sound: {peaks: number[]|null, waveform: string|null}, layout: 'inline' | 'strip'): number[] | string | null {
     return (layout === 'strip' && sound.waveform) || sound.peaks || null;
@@ -98,7 +97,6 @@ export interface EngineTrack {
  * @param layout
  * @param autoplay - Start once loaded (false: cue only).
  * @param preload - The media element's `preload` for this sound.
- * @returns 
  */
 export function engineTrack(sound: {peaks: number[]|null, waveform: string|null, duration: number|null, download: string|null}, layout: 'inline' | 'strip', autoplay: boolean, preload?: string): EngineTrack {
     const track: EngineTrack = {waveform: enginePeaks(sound, layout), autoplay};

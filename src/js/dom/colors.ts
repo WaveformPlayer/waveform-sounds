@@ -43,8 +43,6 @@ export function pageSurface(el: Element, minAlpha: number = 0.95): string {
 /**
  * Is the page in forced colours (Windows High Contrast)? Then the canvas
  * must draw in system colours too.
- *
- * @returns 
  */
 export function forcedColors(): boolean {
     try {
@@ -60,7 +58,6 @@ export function forcedColors(): boolean {
  * list inherits).
  *
  * @param el
- * @returns 
  */
 export function ancestorsOf(el: Element): Element[] {
     const out: Element[] = [];

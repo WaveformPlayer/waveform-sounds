@@ -5,10 +5,13 @@ A searchable, filterable list of sounds (sample-pack previews) built on
 
 ## Commands
 - `npm test` — vitest + jsdom; `test/runtime/integration.test.js` runs against the
-  REAL `@arraypress/waveform-player` (devDependency `file:../waveform-player`,
-  the sibling 2.0 checkout, until 2.0 is on npm), the rest against the
-  stand-in in `test/setup.js` (keep it faithful to the core: it resets the
-  per-track `duration`/`downloadUrl`/`downloadName` on loadTrack like 2.0).
+  REAL `@arraypress/waveform-player` (the published `^2.0.0`, a devDependency),
+  the rest against the stand-in in `test/setup.js` (keep it faithful to the
+  core and the browser: it resets the per-track `duration`/`downloadUrl`/
+  `downloadName` on loadTrack like 2.0; a track switch fires NO onPause (the
+  media load drops the queued pause); play() after a failed load rejects
+  with no onPlay). `test/unit/render/golden.test.js` holds the server markup
+  byte-identical to the published 2.0.0 (`test/fixtures/render-2.0.0.json`).
 - `npm run build` — iife, min, esm, no-autoinit (esm), render (esm), css,
   then `build:types` (declarations + maps into `types/`, generated: never edit them).
   No CommonJS: `require()` of the ESM works on Node >=22.12 (`engines`).
@@ -71,7 +74,13 @@ core. Every function and method carries a JSDoc block.
   sends each sound's own to `loadTrack`). A new core option that changes
   playback or `ended` needs the same check.
 - **Option precedence is the family's: data-* > constructor > default.**
-- Logging prefix `[WaveformSounds]`. Events are `waveformsounds:*`, bubbling.
+- Logging prefix `[WaveformSounds]`. Events are `waveformsounds:*`, bubbling
+  and composed, on the container; the instance is an `EventTarget` that also
+  dispatches the plain name (`play`, …), like the core. Play/pause events
+  follow the SOUND (`_announced`), not the `playing` flag.
+- **Server markup is a contract** (the golden test): runtime-only state
+  (roving tabindex, `aria-valuetext`, the empty-pack text) is set by the
+  runtime, never added to `renderSounds` output.
 - `render/`, `data/` and `shared/` must stay DOM-free: their tests run in the node
   environment and fail if they touch `window`.
 

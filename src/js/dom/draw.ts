@@ -58,7 +58,6 @@ export function resample(peaks: number[], count: number) {
  * @param width - Canvas width (CSS px).
  * @param height - Canvas height (CSS px).
  * @param o
- * @returns 
  */
 export function barRects(peaks: number[], width: number, height: number, o: {style: 'mirror'|'bars', barWidth: number, barGap: number}): {x: number, y: number, w: number, h: number}[] {
     const step = o.barWidth + o.barGap;

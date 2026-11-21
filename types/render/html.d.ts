@@ -17,7 +17,6 @@ export type HtmlChild = string | false | null | undefined | HtmlChild[];
  * Escape text for use as a child.
  *
  * @param value
- * @returns
  */
 export declare function text(value: unknown): string;
 /**
@@ -33,7 +32,6 @@ export declare function attrs(map?: HtmlAttrs): string;
  * @param tag
  * @param attributes
  * @param children - HTML strings; falsy ones and nested arrays are flattened away.
- * @returns
  */
 export declare function h(tag: string, attributes?: HtmlAttrs, ...children: HtmlChild[]): string;
 //# sourceMappingURL=html.d.ts.map

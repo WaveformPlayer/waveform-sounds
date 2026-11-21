@@ -20,7 +20,6 @@
  *
  * @param label
  * @param query
- * @returns
  */
 export declare function optionMatches(label: string, query: string): boolean;
 /**
@@ -29,7 +28,6 @@ export declare function optionMatches(label: string, query: string): boolean;
  * @param current - -1 when nothing is active.
  * @param delta
  * @param length
- * @returns
  */
 export declare function stepIndex(current: number, delta: number, length: number): number;
 /**

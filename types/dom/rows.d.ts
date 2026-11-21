@@ -12,7 +12,6 @@ import type { Sound } from '../types.js';
  * can't leave a hole that would misalign rows and sounds.
  *
  * @param list - The `[data-ws-list]` element.
- * @returns
  */
 export declare function readRows(list: HTMLElement): Sound[];
 /**
@@ -20,7 +19,6 @@ export declare function readRows(list: HTMLElement): Sound[];
  * they're displayed in).
  *
  * @param list
- * @returns
  */
 export declare function indexRows(list: HTMLElement): HTMLElement[];
 /**
@@ -28,7 +26,6 @@ export declare function indexRows(list: HTMLElement): HTMLElement[];
  * display order.
  *
  * @param list
- * @returns
  */
 export declare function visibleRows(list: HTMLElement): HTMLElement[];
 /**

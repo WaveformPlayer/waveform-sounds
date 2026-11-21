@@ -15,7 +15,6 @@ import type { SoundsFilter } from '../types.js';
  * page don't share a filter.
  *
  * @param urlState
- * @returns
  */
 export declare function urlKeys(urlState: boolean | string | null | undefined): {
     q: string;
@@ -62,7 +61,6 @@ export declare function bpmRangeWithin(range: {
  *
  * @param min
  * @param max
- * @returns
  */
 export declare function formatBpmRange(min: string | number | null | undefined, max: string | number | null | undefined): string;
 /**

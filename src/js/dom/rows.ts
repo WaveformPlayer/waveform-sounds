@@ -18,7 +18,6 @@ const ROW = ':scope > [data-ws-index]';
  * can't leave a hole that would misalign rows and sounds.
  *
  * @param list - The `[data-ws-list]` element.
- * @returns 
  */
 export function readRows(list: HTMLElement): Sound[] {
     const rows = [...list.querySelectorAll<HTMLElement>(ROW)]
@@ -42,7 +41,6 @@ export function readRows(list: HTMLElement): Sound[] {
  * they're displayed in).
  *
  * @param list
- * @returns 
  */
 export function indexRows(list: HTMLElement): HTMLElement[] {
     const rows: HTMLElement[] = [];
@@ -55,7 +53,6 @@ export function indexRows(list: HTMLElement): HTMLElement[] {
  * display order.
  *
  * @param list
- * @returns 
  */
 export function visibleRows(list: HTMLElement): HTMLElement[] {
     return [...list.querySelectorAll<HTMLElement>(ROW)].filter((r) => !r.hidden);

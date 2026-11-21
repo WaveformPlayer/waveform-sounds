@@ -69,7 +69,6 @@ export const SORT_LABEL_KEYS: Record<SoundsSort, keyof WaveformSoundsStrings> = 
  *
  * @param template
  * @param vars
- * @returns 
  */
 export function fill(template: string, vars: Record<string, string|number> = {}): string {
     return String(template).replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
@@ -82,7 +81,6 @@ export function fill(template: string, vars: Record<string, string|number> = {})
  * @param filter
  * @param extent - The pack's BPM range.
  * @param strings
- * @returns 
  */
 export function bpmLabel(filter: {bpmMin?: string|number, bpmMax?: string|number}, extent: {min: number, max: number}, strings: typeof DEFAULT_STRINGS = DEFAULT_STRINGS): string {
     if (!hasBpmFilter(filter)) return strings.anyBpm;
@@ -96,7 +94,6 @@ export function bpmLabel(filter: {bpmMin?: string|number, bpmMax?: string|number
  * @param shown - Sounds matching the filter.
  * @param total - All sounds.
  * @param strings
- * @returns 
  */
 export function countText(shown: number, total: number, strings: typeof DEFAULT_STRINGS = DEFAULT_STRINGS): string {
     if (shown !== total) return fill(strings.countFiltered, {count: shown, total});

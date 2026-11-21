@@ -41,7 +41,6 @@ export declare function pickRenderOptions(options: WaveformSoundsOptions | null 
  * a default).
  *
  * @param obj
- * @returns
  */
 export declare function defined(obj: Record<string, any> | null | undefined): Record<string, any>;
 /**
@@ -51,7 +50,6 @@ export declare function defined(obj: Record<string, any> | null | undefined): Re
  * @param values
  * @param allowed
  * @param fallback
- * @returns
  */
 export declare function allowedList<T extends string>(values: unknown, allowed: T[], fallback: T[]): T[];
 /**
@@ -59,7 +57,6 @@ export declare function allowedList<T extends string>(values: unknown, allowed: 
  *
  * @param value
  * @param fallback
- * @returns
  */
 export declare function wholeNumber(value: unknown, fallback: number): number;
 /**
@@ -67,7 +64,6 @@ export declare function wholeNumber(value: unknown, fallback: number): number;
  * columns are dropped, counts are whole numbers, `strings` is complete.
  *
  * @param options
- * @returns
  */
 export declare function resolveRenderOptions(options?: WaveformSoundsOptions): RenderOptions;
 //# sourceMappingURL=options.d.ts.map

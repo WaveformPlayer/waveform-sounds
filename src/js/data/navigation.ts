@@ -68,7 +68,6 @@ export function sliderEdgeTarget(key: string): number | null {
  * @template T
  * @param shown - The sounds that match, in display order.
  * @param limit - How many to show (Infinity for all).
- * @returns 
  */
 export function pageWindow<T>(shown: T[], limit: number): {visible: Set<T>, remaining: number} {
     const visible = new Set(shown.slice(0, limit));
@@ -81,7 +80,6 @@ export function pageWindow<T>(shown: T[], limit: number): {visible: Set<T>, rema
  *
  * @param limit - The current limit.
  * @param pos - The position that must be visible.
- * @returns 
  */
 export function limitToReveal(limit: number, pos: number): number {
     return pos >= limit ? pos + 1 : limit;

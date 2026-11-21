@@ -46,7 +46,6 @@ export declare function sliderEdgeTarget(key: string): number | null;
  * @template T
  * @param shown - The sounds that match, in display order.
  * @param limit - How many to show (Infinity for all).
- * @returns
  */
 export declare function pageWindow<T>(shown: T[], limit: number): {
     visible: Set<T>;
@@ -58,7 +57,6 @@ export declare function pageWindow<T>(shown: T[], limit: number): {
  *
  * @param limit - The current limit.
  * @param pos - The position that must be visible.
- * @returns
  */
 export declare function limitToReveal(limit: number, pos: number): number;
 //# sourceMappingURL=navigation.d.ts.map

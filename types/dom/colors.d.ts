@@ -26,8 +26,6 @@ export declare function pageSurface(el: Element, minAlpha?: number): string;
 /**
  * Is the page in forced colours (Windows High Contrast)? Then the canvas
  * must draw in system colours too.
- *
- * @returns
  */
 export declare function forcedColors(): boolean;
 /**
@@ -36,7 +34,6 @@ export declare function forcedColors(): boolean;
  * list inherits).
  *
  * @param el
- * @returns
  */
 export declare function ancestorsOf(el: Element): Element[];
 /**

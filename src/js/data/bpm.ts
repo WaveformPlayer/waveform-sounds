@@ -46,7 +46,6 @@ export function bpmFilterFromRange(lo: number, hi: number, extent: {min: number,
  *
  * @param filter
  * @param extent
- * @returns 
  */
 export function bpmRangeFromFilter(filter: {bpmMin?: string|number, bpmMax?: string|number}, extent: {min: number, max: number}): {lo: number, hi: number} {
     const read = (v: string | number | undefined, fallback: number): number => {
@@ -63,7 +62,6 @@ export function bpmRangeFromFilter(filter: {bpmMin?: string|number, bpmMax?: str
  *
  * @param value
  * @param extent
- * @returns 
  */
 export function bpmFraction(value: number, extent: {min: number, max: number}): number {
     const span = extent.max - extent.min;
@@ -74,7 +72,6 @@ export function bpmFraction(value: number, extent: {min: number, max: number}): 
  * Is a BPM limit set on either side?
  *
  * @param filter
- * @returns 
  */
 export function hasBpmFilter(filter: {bpmMin?: string|number, bpmMax?: string|number}): boolean {
     return (filter.bpmMin != null && filter.bpmMin !== '') || (filter.bpmMax != null && filter.bpmMax !== '');

@@ -63,7 +63,6 @@ export declare function formatClock(seconds: number): string;
 /**
  * Parse a duration given as seconds (8.02) or as "m:ss" / "h:mm:ss".
  * @param value
- * @returns
  */
 export declare function parseDuration(value: number | string | null | undefined): number | null;
 /**
@@ -71,7 +70,6 @@ export declare function parseDuration(value: number | string | null | undefined)
  * leading pack prefixes kept (they are often the label's code).
  * "NW_Bass_Loop_04_128_Fmin.wav" → "NW Bass Loop 04 128 Fmin".
  * @param url
- * @returns
  */
 export declare function titleFromUrl(url: string): string;
 /**
@@ -95,7 +93,6 @@ export declare const LOOP_FILTERS: string[];
  * as an attribute or a CSV-ish manifest writes it. Unset is a one-shot.
  *
  * @param value
- * @returns
  */
 export declare function isLoop(value: unknown): boolean;
 /**
@@ -104,7 +101,6 @@ export declare function isLoop(value: unknown): boolean;
  * Sounds without a url are dropped.
  *
  * @param manifest
- * @returns
  */
 export declare function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[];
 /**
@@ -112,7 +108,6 @@ export declare function parseManifest(manifest: SoundsManifest | SoundInput[]): 
  * (a repeated id would make two rows answer to one play() call).
  * @param list
  * @param peakScale
- * @returns
  */
 export declare function normalizeSounds(list: SoundInput[], peakScale?: number): Sound[];
 /**
@@ -122,7 +117,6 @@ export declare function normalizeSounds(list: SoundInput[], peakScale?: number):
  * offer is not rendered.
  *
  * @param sounds
- * @returns
  */
 export declare function facets(sounds: Sound[]): {
     types: {
@@ -150,7 +144,6 @@ export declare function facets(sounds: Sound[]): {
  *
  * @param sound
  * @param filter
- * @returns
  */
 export declare function matches(sound: Sound, filter?: Partial<SoundsFilter>): boolean;
 /** The sort orders the toolbar offers. */
@@ -162,7 +155,6 @@ export declare const SORTS: SoundsSort[];
  *
  * @param sorts - The configured orders.
  * @param f - The sounds' facets.
- * @returns
  */
 export declare function availableSorts(sorts: string[], f: ReturnType<typeof facets>): string[];
 /**
@@ -171,7 +163,6 @@ export declare function availableSorts(sorts: string[], f: ReturnType<typeof fac
  *
  * @param sounds
  * @param by
- * @returns
  */
 export declare function sortSounds(sounds: Sound[], by?: SoundsSort): Sound[];
 //# sourceMappingURL=sounds.d.ts.map

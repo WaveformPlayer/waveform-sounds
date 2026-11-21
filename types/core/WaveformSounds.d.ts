@@ -154,7 +154,6 @@ export declare class WaveformSounds extends EventTarget {
     /**
      * The instance on an element (or selector), if any.
      * @param el
-     * @returns
      */
     static getInstance(el: Element | string): WaveformSounds | null;
     /** Destroy instances whose element has left the document (after a
