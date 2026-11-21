@@ -20,7 +20,7 @@ A searchable, filterable list of sounds (sample-pack previews) built on
   entries, `/render` in plain Node (no DOM), types (bundler + nodenext), both
   script-tag builds in jsdom.
 - `npm run typecheck` (strict `tsc`, must be 0 errors) · `npm run lint` (Biome).
-- `npm run size` — currently ~15.1 KB JS / ~3.1 KB CSS gzipped.
+- `npm run size` — currently ~17.6 KB JS / ~3.5 KB CSS gzipped.
 
 ## Architecture (`src/js/`) — by layer
 
@@ -28,6 +28,7 @@ A searchable, filterable list of sounds (sample-pack previews) built on
 index.ts · entry.ts · render-entry.ts    entry points (each is a build target)
 types.ts  the public types (options, sounds, events)
 core/     WaveformSounds.ts   the class: orchestration only
+          element.ts          the <waveform-sounds> custom element (+ its definer)
           engine.ts           the engine player's options + per-sound peaks
           options.ts          DEFAULT_OPTIONS, data-* parsing, merge
 data/     sounds.ts           pure: normalise, peaks codec, keys, facets, filter, sort

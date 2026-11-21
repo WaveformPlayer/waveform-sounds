@@ -4,7 +4,120 @@ All notable changes to `@arraypress/waveform-sounds` are documented here. The
 format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.1.0] — Unreleased
+
+Fixes from an audit of 2.0.0 in Chromium, Firefox and WebKit (and Chrome
+115–133 / Firefox 115–128 binaries), the `<waveform-sounds>` element, and
+the family's event and server-rendering surface. Non-breaking: for packs
+with whole-number BPMs, `renderSounds` output is byte-identical to 2.0.0
+(a golden test holds it so).
+
+### Fixed
+
+- **Switching sounds while one plays is reported.** ↓ audition, `play(i)`,
+  `next()` and auto-advance emitted no `waveformsounds:play` / `onPlay` for
+  the new sound (and no `pause` for the outgoing one), and the live region
+  kept the first title: the browser swaps the source without a `pause`, so
+  the playing flag never flipped. Events now follow the sound.
+- **A sound that fails is no longer left "playing".** A 404, an
+  undecodable file or a dropped connection set `is-error` but left
+  `playing` true and the row's button reading "Pause". Now the state
+  settles, the live region announces it (new string `playError`), and the
+  row's mark clears once it loads.
+- **A list that can't be built says so.** A manifest that 404s or isn't
+  JSON left an empty container; one that isn't a manifest rendered "No
+  sounds match." with a Clear button. Now `loadError` shows where the list
+  would be (`role="alert"`; a site's own fallback content in the container
+  stays), and an empty pack shows `noSounds` with nothing to clear.
+- **Pressed controls are readable before the script measures the page.**
+  Chrome 119–130 (relative colour, but not from `currentColor`) and
+  Firefox 128–132 (`currentColor` resolved as black) painted a pressed
+  chip, segment or Loop toggle in text colour on a text-colour fill on
+  dark pages (1.0–1.2:1) until the runtime measured the surface. There,
+  until it has, a pressed control is a tint with text-colour ink (9:1).
+  Current engines are unchanged.
+- **The surface is re-measured when a theme flips on any ancestor**
+  (class, style or `data-theme` on a section, a card, a framework's root;
+  not only `<html>` / `<body>`), and on a forced-colours switch.
+- **The BPM panel fits on phones.** At phone width it hung off the
+  screen's edge; in the narrow layout the menus now open from the
+  controls row and never exceed it.
+- **Fractional BPMs.** The slider steps by 1, so a pack whose fastest loop
+  is 128.5 BPM had a top handle stuck at 128 that filtered that loop out.
+  The slider's ends are now the pack's range rounded outward (floor /
+  ceil). **The rendered BPM slider's `min` / `max` / ends change for packs
+  with fractional BPMs only** (e.g. 128.5 → 129).
+- **The address.** `?bpm=` with the ends reversed is put in order, limits
+  outside the pack are ignored (a stale link no longer empties the list),
+  and decimals are read — so it round-trips what `setFilter` writes.
+- **Focus never drops to `<body>`:** after "Clear filters" it goes to the
+  search box, after the last "Show more" to the first row it revealed, and
+  out of a row that a filter hides to the first row shown.
+- `parseDuration('1:-30')` is `null` (was 30).
+
+### Changed
+
+- **The list is one Tab stop** (roving tabindex, set at runtime; the markup
+  is unchanged): the focused row's play button — with its download link,
+  and its seek slider when it is the current sound — and ↑/↓ between rows,
+  as before.
+- **Resize and theme repaints draw only the rows on screen**; the rest are
+  redrawn when they scroll back in. 1000 rows: ~410 → 5ms per resize step
+  in Chromium, ~1.9s → 25ms in WebKit, ~650 → 10ms in Firefox.
+- **The strip's cue fetches nothing.** The docked player's first sound is
+  cued with `preload: 'none'` (title, length and peaks come from the data),
+  and the next sound played gets the engine's own `preload` back. 300
+  sounds, 8 filter changes, no play: 0 audio requests (was 6 files, ~2MB,
+  in Firefox and WebKit).
+- **Forced colours** (Windows High Contrast): pressed states and the
+  playing row's button use Highlight / HighlightText (their icons were
+  invisible), the BPM track is drawn, focus is an outline rather than a
+  box-shadow, and the row waveforms draw in CanvasText / Highlight.
+- **Focus and targets:** the search field shows a 2px focus ring on its
+  frame (and the menu search field one of its own); "Any BPM" is a 24×24
+  target.
+- `waveformsounds:*` events are `composed` (they leave a shadow root, like
+  the core's).
+- `renderSoundsElement` writes a `data-*` attribute for every render option
+  you set (`data-page-size="20"`, `data-filters=""`, `data-strings='…'`),
+  so the runtime adopting it keeps them (a `pageSize` of 20 was re-paged to
+  50). Its inner markup is `renderSounds`' as before, and with only
+  `player` (or nothing) set the element is unchanged too.
+- `engine` is typed as the core's `WaveformPlayer` (was `unknown`);
+  `SoundInput.loop` accepts the strings and numbers the runtime reads
+  (`'true'`, `'1'`, `1`, …).
+- Re-sorting is linear (was quadratic), and one filter pass serves each
+  layout.
+
+### Added
+
+- **`<waveform-sounds>`**, a light-DOM custom element modelled on the
+  core's `<waveform-player>`: every `data-*` option as an attribute with or
+  without the prefix (`<waveform-sounds manifest="/sounds.json"
+  page-size="20">`), server markup inside it adopted as it is today,
+  events bubbling from it, `.sounds` for the instance; a move keeps it,
+  attribute changes rebuild it. Registered by the default entry (behind
+  the same `data-waveform-autoinit="false"` opt-out); `/no-autoinit`
+  exports `defineWaveformSoundsElement(name)` and `WaveformSoundsElement`.
+- **`WaveformSounds.defineElement(name?)`** — the definer as a static, so
+  a `<script>` page that opted out of auto-init can register the tag (as
+  the core's `WaveformPlayer.defineElement()`).
+- **`destroy({restore: true})`** puts adopted server markup back exactly as
+  it arrived, for frameworks that re-mount the same markup. `destroy()` is
+  unchanged.
+- **The instance is an `EventTarget`**: `list.addEventListener('play', …)`
+  for `ready`, `play`, `pause`, `end`, `filter` and `error`, after the
+  container's `waveformsounds:*` event (`WaveformSoundsInstanceEventMap`).
+- The `waveformsounds:*` event map is merged into `DocumentEventMap` and
+  `WindowEventMap` as well, so `document.addEventListener(...)` is typed.
+- **`RENDER_OPTION_KEYS` and `pickRenderOptions(options)`** (from `/render`
+  and the main entry): the options that shape the server markup, for
+  wrappers handing props to `renderSounds`.
+- **The seek slider reads out its time** (`aria-valuetext`, "0:12 of 0:30",
+  string `seekValue`), and Home / End on it seek to the start / end.
+- `decodePeaks` — so manifests and `data-peaks` — accepts the core's
+  compact `wp1:` peaks; the server markup still writes hex.
+- Strings `playError`, `loadError`, `noSounds`, `seekValue`.
 
 ## [2.0.0] — 2026-11-21
 
