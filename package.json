@@ -79,12 +79,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arraypress/waveform-sounds.git"
+    "url": "git+https://github.com/WaveformPlayer/waveform-sounds.git"
   },
   "bugs": {
-    "url": "https://github.com/arraypress/waveform-sounds/issues"
+    "url": "https://github.com/WaveformPlayer/waveform-sounds/issues"
   },
-  "homepage": "https://github.com/arraypress/waveform-sounds#readme",
+  "homepage": "https://github.com/WaveformPlayer/waveform-sounds#readme",
   "peerDependencies": {
     "@arraypress/waveform-player": "^1.24.5"
   },
