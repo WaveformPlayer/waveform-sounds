@@ -9,6 +9,15 @@ import {
     encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration,
 } from './data/sounds.js';
 import {renderSounds, renderSoundsElement, DEFAULT_STRINGS} from './render/markup.js';
+import type {WaveformSoundsEventMap} from './types.js';
+
+declare global {
+    interface Window {
+        /** The script-tag global, set when the bundle loads in a browser. */
+        WaveformSounds: typeof WaveformSounds;
+    }
+    interface HTMLElementEventMap extends WaveformSoundsEventMap {}
+}
 
 WaveformSounds.utils = {encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration, renderSounds};
 WaveformSounds.DEFAULT_OPTIONS = DEFAULT_OPTIONS;
@@ -23,3 +32,19 @@ export {
     encodePeaks, decodePeaks, normalizeKey, normalizeSounds, parseManifest, facets, matches, sortSounds, formatDuration,
     renderSounds, renderSoundsElement,
 };
+
+// The public types (sounds, options, filter, events), for `import type { ... }`.
+export type {
+    SoundInput,
+    Sound,
+    SoundsManifest,
+    SoundsFilter,
+    SoundsLoopFilter,
+    SoundsSort,
+    SoundsLayout,
+    SoundsFilterControl,
+    SoundsColumn,
+    WaveformSoundsStrings,
+    WaveformSoundsOptions,
+    WaveformSoundsEventMap,
+} from './types.js';
