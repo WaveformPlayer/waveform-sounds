@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "stripInternal": true,
+    "allowJs": false,
+    "outDir": "types",
+    "rootDir": "src/js"
+  },
+  "include": [
+    "src/js/index.ts",
+    "src/js/entry.ts",
+    "src/js/render-entry.ts"
+  ]
+}

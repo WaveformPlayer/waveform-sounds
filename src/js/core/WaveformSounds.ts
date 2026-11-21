@@ -597,6 +597,9 @@ export class WaveformSounds {
      *
      * @param patch
      */
+    // The public signature (as in 0.3.1's index.d.ts: `patch` required); the
+    // implementation's default stays, and an overload signature emits nothing.
+    setFilter(patch: Partial<SoundsFilter>): void;
     setFilter(patch: Partial<SoundsFilter> = {}): void {
         (this as Writable<WaveformSounds>).filter = {...this.filter, ...patch};
         this.limit = this._pageSize();

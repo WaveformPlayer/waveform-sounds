@@ -1,11 +1,15 @@
 /**
- * @arraypress/waveform-sounds — hand-written types.
+ * The public data, option and event types of WaveformSounds. Moved here from
+ * the hand-written index.d.ts so the source uses the same definitions the
+ * published types are generated from.
  *
  * The four `waveform-sounds-*` wrappers derive their prop types from
- * `WaveformSoundsOptions` here. Add or rename an option in `src/js/core/options.js`
+ * `WaveformSoundsOptions` here. Add or rename an option in `core/options.ts`
  * (`DEFAULT_OPTIONS`) and in this file in the same change.
+ *
+ * @module types
  */
-
+import type { WaveformSounds } from './core/WaveformSounds.js';
 /** One sound, as given (a manifest entry, a `sounds` item). */
 export interface SoundInput {
     /** Audio URL. Required. */
@@ -43,7 +47,6 @@ export interface SoundInput {
      *  (`sound-1` is the first sound). */
     id?: string;
 }
-
 /** A sound after normalisation (what the runtime holds). */
 export interface Sound {
     id: string;
@@ -59,7 +62,6 @@ export interface Sound {
     download: string | null;
     loop: boolean;
 }
-
 /** What `waveform-gen --manifest` writes (a bare array also works). */
 export interface SoundsManifest {
     version?: number;
@@ -67,7 +69,6 @@ export interface SoundsManifest {
     peakScale?: number;
     sounds: SoundInput[];
 }
-
 export interface SoundsFilter {
     /** Words matched (all of them, any order) against title, type, key and
      *  tags; a number also matches the BPM exactly. */
@@ -81,14 +82,11 @@ export interface SoundsFilter {
     /** `'loop'`: loops only. `'one-shot'`: everything else. '' for both. */
     loop?: SoundsLoopFilter;
 }
-
 export type SoundsLoopFilter = '' | 'loop' | 'one-shot';
-
 export type SoundsSort = 'default' | 'title' | 'bpm' | 'key' | 'duration';
 export type SoundsLayout = 'inline' | 'strip';
 export type SoundsFilterControl = 'type' | 'key' | 'bpm' | 'loop';
 export type SoundsColumn = 'type' | 'bpm' | 'key' | 'duration';
-
 /** Every visible or announced word. `{title}`, `{count}`, `{total}` are filled in. */
 export interface WaveformSoundsStrings {
     search: string;
@@ -132,7 +130,6 @@ export interface WaveformSoundsStrings {
     clear: string;
     nowPlaying: string;
 }
-
 export interface WaveformSoundsOptions {
     /** The sounds. Or `manifest`, or server-rendered rows in the container. */
     sounds?: SoundInput[] | null;
@@ -216,97 +213,38 @@ export interface WaveformSoundsOptions {
     onFilter?: ((visible: Sound[], instance: WaveformSounds) => void) | null;
     onError?: ((error: unknown, instance: WaveformSounds) => void) | null;
 }
-
 /** `detail` of the `waveformsounds:*` DOM events (all bubble). */
 export interface WaveformSoundsEventMap {
-    'waveformsounds:ready': CustomEvent<{sounds: number; instance: WaveformSounds}>;
-    'waveformsounds:play': CustomEvent<{sound: Sound; index: number; instance: WaveformSounds}>;
-    'waveformsounds:pause': CustomEvent<{sound: Sound; index: number; instance: WaveformSounds}>;
-    'waveformsounds:end': CustomEvent<{sound: Sound; index: number; instance: WaveformSounds}>;
-    'waveformsounds:filter': CustomEvent<{visible: number; total: number; filter: SoundsFilter; sort: SoundsSort; instance: WaveformSounds}>;
-    'waveformsounds:error': CustomEvent<{error: unknown; sound?: Sound; index?: number; instance: WaveformSounds}>;
-}
-
-export declare class WaveformSounds {
-    constructor(container: HTMLElement | string, options?: WaveformSoundsOptions);
-    readonly container: HTMLElement;
-    readonly options: Required<WaveformSoundsOptions>;
-    /** Resolves once the list is built (after a manifest fetch, if any).
-     *  The build always happens after the constructor returns, so listeners
-     *  attached straight after `new WaveformSounds()` see `ready`. It never
-     *  rejects: a failed build (e.g. the manifest 404s) resolves it too and
-     *  is reported through `onError` / `waveformsounds:error`. Calls made
-     *  before it resolves are honoured: `setFilter`/`setSort` show in the
-     *  controls once built, and `play()` waits for the list. */
-    readonly ready: Promise<void>;
-    readonly sounds: Sound[];
-    readonly filter: SoundsFilter;
-    readonly sortBy: SoundsSort;
-    readonly playing: boolean;
-    /** The engine `WaveformPlayer`, created on first play. */
-    readonly engine: unknown;
-    /** The sounds passing the filter, in sort order. */
-    readonly visible: Sound[];
-    /** The current (playing or paused) sound. */
-    readonly current: Sound | null;
-
-    play(target?: number | string | Sound, opts?: {at?: number}): void;
-    pause(): void;
-    toggle(target?: number | string | Sound): void;
-    next(): void;
-    previous(): void;
-    setLoop(on: boolean): void;
-    setFilter(patch: Partial<SoundsFilter>): void;
-    clearFilters(): void;
-    setSort(by: SoundsSort): void;
-    showMore(): void;
-    /** Tear down listeners, observers and the engine. Markup the instance
-     *  rendered is restored; ADOPTED server markup is left as it is (rows may
-     *  be re-sorted/hidden) — re-render it before building a new instance. */
-    destroy(): void;
-
-    static instances: Map<Element, WaveformSounds>;
-    static init(root?: ParentNode): WaveformSounds[];
-    static getInstance(el: Element | string): WaveformSounds | null;
-    /** Destroy instances whose element has left the document. */
-    static prune(): void;
-    static DEFAULT_OPTIONS: WaveformSoundsOptions;
-    static DEFAULT_STRINGS: WaveformSoundsStrings;
-    static utils: {
-        encodePeaks: typeof encodePeaks;
-        decodePeaks: typeof decodePeaks;
-        normalizeKey: typeof normalizeKey;
-        normalizeSounds: typeof normalizeSounds;
-        parseManifest: typeof parseManifest;
-        facets: typeof facets;
-        matches: typeof matches;
-        sortSounds: typeof sortSounds;
-        formatDuration: typeof formatDuration;
-        renderSounds: typeof renderSounds;
-    };
-}
-
-export declare const DEFAULT_OPTIONS: WaveformSoundsOptions;
-export declare const DEFAULT_STRINGS: WaveformSoundsStrings;
-export declare function encodePeaks(peaks: number[]): string;
-export declare function decodePeaks(value: string | number[] | null | undefined, scale?: number): number[] | null;
-export declare function normalizeKey(key: string | null | undefined): string;
-export declare function normalizeSounds(list: SoundInput[], peakScale?: number): Sound[];
-export declare function parseManifest(manifest: SoundsManifest | SoundInput[]): Sound[];
-export declare function facets(sounds: Sound[]): {types: {name: string; count: number}[]; keys: string[]; bpm: {min: number; max: number} | null; hasDuration: boolean; loops: number; oneShots: number};
-export declare function matches(sound: Sound, filter?: Partial<SoundsFilter>): boolean;
-export declare function sortSounds(sounds: Sound[], by?: SoundsSort): Sound[];
-export declare function formatDuration(seconds: number | null | undefined): string;
-/** The component's inner markup, for server rendering (also exported, DOM-free, from `@arraypress/waveform-sounds/render`). */
-export declare function renderSounds(sounds: SoundInput[], options?: WaveformSoundsOptions): string;
-/** The whole element (wrapper div included). */
-export declare function renderSoundsElement(sounds: SoundInput[], options?: WaveformSoundsOptions, className?: string): string;
-
-export default WaveformSounds;
-
-declare global {
-    interface Window {
-        WaveformSounds: typeof WaveformSounds;
-    }
-    interface HTMLElementEventMap extends WaveformSoundsEventMap {}
+    'waveformsounds:ready': CustomEvent<{
+        sounds: number;
+        instance: WaveformSounds;
+    }>;
+    'waveformsounds:play': CustomEvent<{
+        sound: Sound;
+        index: number;
+        instance: WaveformSounds;
+    }>;
+    'waveformsounds:pause': CustomEvent<{
+        sound: Sound;
+        index: number;
+        instance: WaveformSounds;
+    }>;
+    'waveformsounds:end': CustomEvent<{
+        sound: Sound;
+        index: number;
+        instance: WaveformSounds;
+    }>;
+    'waveformsounds:filter': CustomEvent<{
+        visible: number;
+        total: number;
+        filter: SoundsFilter;
+        sort: SoundsSort;
+        instance: WaveformSounds;
+    }>;
+    'waveformsounds:error': CustomEvent<{
+        error: unknown;
+        sound?: Sound;
+        index?: number;
+        instance: WaveformSounds;
+    }>;
 }
