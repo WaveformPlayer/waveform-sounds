@@ -6,6 +6,72 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] — Unreleased
+
+Version 2.0.0 lines the package up with `@arraypress/waveform-player` 2.0,
+which it now requires. The list itself works as in 0.3.1: options, markup,
+classes, events and the server-rendered HTML are unchanged (`renderSounds`
+output is byte-identical).
+
+### Added
+
+- **A sound's known length reaches the player.** A sound with a `duration`
+  passes it to the engine (the 2.0 core's `duration` option), so the
+  player shows the right total, places a seek and fills the Media Session
+  scrubber before the audio's metadata arrives.
+- **A docked player's download link matches the row.** With
+  `playerOptions: {showDownload: true}` in the `strip` layout, the
+  player's download link is the sound's `download`, else its audio.
+
+### Changed
+
+- **Requires `@arraypress/waveform-player` 2.0** (peer `^2.0.0`).
+- **Written in TypeScript.** The type declarations are generated from the
+  source into `types/` instead of being written by hand. The root
+  `index.d.ts`, `no-autoinit.d.ts` and `render.d.ts` are gone; the
+  `exports` map points each entry at its declarations
+  (`types/index.d.ts`, `types/entry.d.ts`, `types/render-entry.d.ts`), and
+  the option types live in `types/types.d.ts`. Declaration maps ship, so
+  Go to definition opens the TypeScript source.
+- **Browser support is Chrome/Edge 111+, Firefox 114+ and Safari 16.4+**
+  (all from early 2023), as for the core. The bundles are built for ES2022.
+- **The script-tag builds run in strict mode.** `waveform-sounds.js` and
+  `.min.js` now start with `"use strict"`; the ES module builds always ran
+  strict, as every ES module does.
+- **`playerOptions` can't take looping from the list.** The engine's `loop`
+  and `showLoop` are always off: the player's loop would stop `ended`
+  (stalling `autoAdvance`), and its toggle would loop one-shots behind the
+  Loop toggle's back. `duration`, `downloadUrl` and `downloadName` in
+  `playerOptions` are ignored: they describe one track, and each sound
+  brings its own. `lazy` has no effect on the engine (it loads nothing
+  until a sound plays); `showVolume`, `volume` and the rest pass through.
+- **Search uses `@arraypress/text` 2.3.1** (bundled). Accents still fold
+  away (`Café` finds `cafe`), but the marks that are part of a letter in
+  scripts such as Devanagari are kept: `हिन्दी बेस` was searched as the
+  fragments `ह`, `नद`, `बस`, and is now the two words it spells.
+
+### Fixed
+
+- **Reduced motion covers every transition.** The segmented control, the
+  download button and the menu chevron still animated with
+  `prefers-reduced-motion: reduce`.
+- **Pressed controls are readable before the script runs where relative
+  colour isn't supported** (Safari 16.4–17, Firefox before 128): the
+  "on" ink falls back to the page surface instead of painting the text
+  colour on a text-colour fill.
+
+### Removed
+
+- **The CommonJS builds** (`waveform-sounds.cjs`,
+  `waveform-sounds-no-autoinit.cjs`, `waveform-sounds-render.cjs`), the
+  `require` export conditions and the `module` field. `main` is the ES
+  module build. `require('@arraypress/waveform-sounds')` (and `/render`,
+  `/no-autoinit`) still works: Node 22.12+ loads the ES module through
+  `require()`, and `engines` now says `>=22.12`.
+- **Vendor prefixes the browser floor doesn't need** (`-webkit-appearance`
+  beside `appearance`) and the deprecated `clip` on `.ws-sr`
+  (`clip-path: inset(50%)` instead).
+
 ## [0.3.1] — 2026-10-08
 
 ### Fixed

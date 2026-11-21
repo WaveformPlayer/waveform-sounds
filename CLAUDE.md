@@ -4,13 +4,20 @@ A searchable, filterable list of sounds (sample-pack previews) built on
 `@arraypress/waveform-player`. Peer of `waveform-playlist`, not a fork of it.
 
 ## Commands
-- `npm test` — vitest + jsdom; `test/integration.test.js` runs against the
-  REAL `@arraypress/waveform-player` (a devDependency from npm), the rest against
-  the stand-in in `test/setup.js`.
-- `npm run build` — iife, min, esm, cjs, no-autoinit (esm+cjs), render (esm+cjs), css,
-  then `build:types` (declarations into `types/`, generated: never edit them).
+- `npm test` — vitest + jsdom; `test/runtime/integration.test.js` runs against the
+  REAL `@arraypress/waveform-player` (devDependency `file:../waveform-player`,
+  the sibling 2.0 checkout, until 2.0 is on npm), the rest against the
+  stand-in in `test/setup.js` (keep it faithful to the core: it resets the
+  per-track `duration`/`downloadUrl`/`downloadName` on loadTrack like 2.0).
+- `npm run build` — iife, min, esm, no-autoinit (esm), render (esm), css,
+  then `build:types` (declarations + maps into `types/`, generated: never edit them).
+  No CommonJS: `require()` of the ESM works on Node >=22.12 (`engines`).
+- `npm run test:pack` — builds, packs this package + the installed core into a
+  throwaway consumer: exports vs tarball, import + require() of all three
+  entries, `/render` in plain Node (no DOM), types (bundler + nodenext), both
+  script-tag builds in jsdom.
 - `npm run typecheck` (strict `tsc`, must be 0 errors) · `npm run lint` (Biome).
-- `npm run size` — currently ~13.9 KB JS / ~2.6 KB CSS gzipped.
+- `npm run size` — currently ~15.1 KB JS / ~3.1 KB CSS gzipped.
 
 ## Architecture (`src/js/`) — by layer
 
@@ -54,9 +61,15 @@ core. Every function and method carries a JSDoc block.
   `types/types.d.ts`; the root `index.d.ts` they read up to 0.3.1 is gone). New option → `DEFAULT_OPTIONS`
   (core/options.ts; render-shaping ones in render/options.ts),
   `readDataOptions` (data-* form), `types.ts`, and every wrapper's allowlist.
-- **TypeScript, same emitted code.** esbuild reads `tsconfig.esbuild.json`, not
-  `tsconfig.json`: strict mode's `alwaysStrict` would add "use strict" to the
-  IIFE/CJS bundles. Class fields are `declare`d (no emit).
+- **TypeScript, ES2022, strict.** esbuild reads `tsconfig.json` (target ES2022:
+  Chrome/Edge 111, Firefox 114, Safari 16.4), so the IIFE bundles start with
+  "use strict" like the core's. Class fields are `declare`d (no emit).
+- **The engine's options** (`core/engine.ts`): `playerOptions` pass through
+  except `audioMode` (always `'self'`), `loop`/`showLoop` (always off — the
+  list's Loop owns looping; the player's would stop `ended`) and the
+  per-track `duration`/`downloadUrl`/`downloadName` (dropped; `engineTrack()`
+  sends each sound's own to `loadTrack`). A new core option that changes
+  playback or `ended` needs the same check.
 - **Option precedence is the family's: data-* > constructor > default.**
 - Logging prefix `[WaveformSounds]`. Events are `waveformsounds:*`, bubbling.
 - `render/`, `data/` and `shared/` must stay DOM-free: their tests run in the node
