@@ -1,7 +1,19 @@
 import {describe, it, expect} from 'vitest';
-import {bpmFilterFromRange, bpmRangeFromFilter, bpmFraction, hasBpmFilter} from '../../../src/js/data/bpm.js';
+import {bpmExtent, bpmFilterFromRange, bpmRangeFromFilter, bpmFraction, hasBpmFilter} from '../../../src/js/data/bpm.js';
 
 const extent = {min: 90, max: 140};
+
+describe('bpmExtent', () => {
+    it('widens a fractional pack to whole BPMs, leaves a whole one alone', () => {
+        expect(bpmExtent({min: 90, max: 128.5})).toEqual({min: 90, max: 129});
+        expect(bpmExtent({min: 89.9, max: 140})).toEqual({min: 89, max: 140});
+        expect(bpmExtent({min: 90, max: 140})).toEqual({min: 90, max: 140});
+        expect(bpmExtent(null)).toBeNull();
+    });
+    it('the top handle at the widened end is no limit: 128.5 stays in', () => {
+        expect(bpmFilterFromRange(91, 129, bpmExtent({min: 90, max: 128.5}))).toEqual({bpmMin: '91', bpmMax: ''});
+    });
+});
 
 describe('bpm range ↔ filter', () => {
     it('a handle at an end is no limit on that side (sounds without a BPM stay)', () => {

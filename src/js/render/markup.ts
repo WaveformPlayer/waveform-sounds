@@ -22,6 +22,7 @@ import {ICONS} from './icons.js';
 import {RENDER_DEFAULTS, resolveRenderOptions} from './options.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill, SORT_LABEL_KEYS} from './strings.js';
 import {hashString} from '../shared/utils.js';
+import {bpmExtent} from '../data/bpm.js';
 import type {Sound, SoundInput, SoundsSort, WaveformSoundsOptions, WaveformSoundsStrings} from '../types.js';
 
 export {escapeHtml, RENDER_DEFAULTS, resolveRenderOptions, DEFAULT_STRINGS, countText, fill, availableSorts};
@@ -170,7 +171,8 @@ export function renderMenu(name: string, m: MenuSpec): string {
  * @param m
  * @param m.id - Id prefix for this list.
  * @param m.s
- * @param m.range - The pack's BPM range.
+ * @param m.range - The slider's range: the pack's, widened to whole BPMs
+ *   ({@link bpmExtent}; a pack of whole BPMs renders as it always did).
  * @returns 
  */
 function renderBpmMenu({id, s, range}: {id: string, s: WaveformSoundsStrings, range: {min: number, max: number}}): string {
@@ -239,7 +241,7 @@ function renderToolbar(plan: ReturnType<typeof toolbarPlan>, {o, s, f, total, id
             label: s.key, value: '', placeholder: s.findKey,
             options: [{value: '', label: s.anyKey}, ...f.keys.map((k) => ({value: k, label: k}))],
         }),
-        plan.bpm && renderBpmMenu({id, s, range: f.bpm!}),
+        plan.bpm && renderBpmMenu({id, s, range: bpmExtent(f.bpm)!}),
         plan.loops && renderLoopFilter(s),
         plan.sorts.length > 0 && menu('sort', {
             label: s.sort, prefix: s.sortBy, value: plan.sorts[0],

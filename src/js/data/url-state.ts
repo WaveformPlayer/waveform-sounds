@@ -27,14 +27,35 @@ export function urlKeys(urlState: boolean | string | null | undefined): {q: stri
 }
 
 /**
- * A BPM range parameter: "120-130", "120-" or "-130".
+ * A BPM range parameter: "120-130", "120-", "-130", or with decimals
+ * ("128.5-130", what `setFilter({bpmMin: 128.5})` writes). Reversed ends
+ * are put in order.
  *
  * @param value
  * @returns null if malformed.
  */
 export function parseBpmRange(value: string | null | undefined): {bpmMin: string, bpmMax: string} | null {
-    const m = String(value ?? '').match(/^(\d*)-(\d*)$/);
-    return m && (m[1] || m[2]) ? {bpmMin: m[1], bpmMax: m[2]} : null;
+    const m = String(value ?? '').match(/^(\d+(?:\.\d+)?)?-(\d+(?:\.\d+)?)?$/);
+    if (!m || !(m[1] || m[2])) return null;
+    const lo = m[1] ?? '', hi = m[2] ?? '';
+    return lo && hi && Number(lo) > Number(hi) ? {bpmMin: hi, bpmMax: lo} : {bpmMin: lo, bpmMax: hi};
+}
+
+/**
+ * Keep only the limits that fall inside the pack's BPM range: a link made
+ * for another pack (`?bpm=200-` on one topping out at 174) must not empty
+ * the list, and a limit beyond an end is no limit at all.
+ *
+ * @param range - From {@link parseBpmRange}.
+ * @param extent - The slider's range; null when the pack has no BPMs
+ *   (then any BPM filter would hide everything, so none is kept).
+ * @returns The usable limits, or null when none is left.
+ */
+export function bpmRangeWithin(range: {bpmMin: string, bpmMax: string}, extent: {min: number, max: number} | null): {bpmMin: string, bpmMax: string} | null {
+    if (!extent) return null;
+    const inside = (v: string) => (v !== '' && Number(v) >= extent.min && Number(v) <= extent.max ? v : '');
+    const out = {bpmMin: inside(range.bpmMin), bpmMax: inside(range.bpmMax)};
+    return out.bpmMin || out.bpmMax ? out : null;
 }
 
 /**
@@ -51,18 +72,20 @@ export function formatBpmRange(min: string | number | null | undefined, max: str
 
 /**
  * Read the filter and sort from a query string. Values the list can't use
- * (a type it doesn't have, a key no sound is in, a loops filter on a list
- * that isn't a mix of loops and one-shots, a sort it doesn't offer)
+ * (a type it doesn't have, a key no sound is in, a BPM limit outside its
+ * range, a loops filter on a list that isn't a mix of loops and one-shots,
+ * a sort it doesn't offer)
  * are ignored, never applied: a stale link shows the whole list, not an
  * empty one.
  *
  * @param search - `location.search`.
  * @param keys
- * @param available - From `facets()`.
+ * @param available - From `facets()`, with `bpm` as the slider's range
+ *   (`bpmExtent()`).
  * @param sorts - The sort orders offered.
  * @returns A filter patch, and the sort (or null).
  */
-export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, available: {types: {name: string}[], keys: string[], loops?: number, oneShots?: number}, sorts: string[]): {filter: Partial<SoundsFilter>, sort: string|null} {
+export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, available: {types: {name: string}[], keys: string[], loops?: number, oneShots?: number, bpm?: {min: number, max: number} | null}, sorts: string[]): {filter: Partial<SoundsFilter>, sort: string|null} {
     const out: {filter: Partial<SoundsFilter>, sort: string | null} = {filter: {}, sort: null};
     if (!keys) return out;
     const sp = new URLSearchParams(search);
@@ -72,7 +95,9 @@ export function readUrlState(search: string, keys: ReturnType<typeof urlKeys>, a
     if (type && available.types.some((t) => t.name === type)) out.filter.type = type;
     const key = normalizeKey(sp.get(keys.key));
     if (key && available.keys.includes(key)) out.filter.key = key;
-    const bpm = parseBpmRange(sp.get(keys.bpm));
+    const parsed = parseBpmRange(sp.get(keys.bpm));
+    // Without the pack's range (an older caller), the limits apply as given.
+    const bpm = parsed && available.bpm !== undefined ? bpmRangeWithin(parsed, available.bpm) : parsed;
     if (bpm) Object.assign(out.filter, bpm);
     const loop = sp.get(keys.loop);
     if (LOOP_FILTERS.includes(loop!) && available.loops! > 0 && available.oneShots! > 0) out.filter.loop = loop as SoundsLoopFilter;

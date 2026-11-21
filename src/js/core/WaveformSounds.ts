@@ -36,7 +36,7 @@ import {resolveRenderOptions} from '../render/options.js';
 import {loopsByDefault, renderSounds} from '../render/markup.js';
 import {indexRows, orderRows, readRows, visibleRows} from '../dom/rows.js';
 import {bpmLabel, countText, DEFAULT_STRINGS, fill} from '../render/strings.js';
-import {bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.js';
+import {bpmExtent, bpmFilterFromRange, bpmFraction, bpmRangeFromFilter} from '../data/bpm.js';
 import {pageSurface, resolveCssColor} from '../dom/colors.js';
 import {readUrlState, urlKeys, writeUrlState} from '../data/url-state.js';
 import {emit, isTyping, LOG, pointerFraction} from '../shared/utils.js';
@@ -247,7 +247,7 @@ export class WaveformSounds {
         // when the list marks loops — only those repeat.
         if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
         this._setLoop(this.loop);
-        this._bpmExtent = facets(this.sounds).bpm;
+        this._bpmExtent = bpmExtent(facets(this.sounds).bpm);
 
         // The starting order is the first one offered, unless setSort()
         // already chose one; then the address may override both.
@@ -586,7 +586,8 @@ export class WaveformSounds {
     _readUrl(): void {
         const keys = urlKeys(this.options.urlState);
         if (!keys || typeof location === 'undefined') return;
-        const {filter, sort} = readUrlState(location.search, keys, facets(this.sounds), this._sorts);
+        const f = facets(this.sounds);
+        const {filter, sort} = readUrlState(location.search, keys, {...f, bpm: bpmExtent(f.bpm)}, this._sorts);
         (this as Writable<WaveformSounds>).filter = {...this.filter, ...filter};
         if (sort) { (this as Writable<WaveformSounds>).sortBy = sort as SoundsSort; this._sortSet = true; }
     }

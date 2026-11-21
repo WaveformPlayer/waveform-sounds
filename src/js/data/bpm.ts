@@ -11,11 +11,24 @@
  */
 
 /**
+ * The range the slider spans: the pack's BPMs widened to whole numbers
+ * (the handles step by 1, so a pack whose fastest loop is 128.5 BPM needs
+ * an end at 129, or the top handle could never reach it). A pack of whole
+ * BPMs is unchanged.
+ *
+ * @param range - The pack's BPM range (`facets().bpm`).
+ * @returns The slider's ends, or null when the pack has no BPMs.
+ */
+export function bpmExtent(range: {min: number, max: number} | null | undefined): {min: number, max: number} | null {
+    return range ? {min: Math.floor(range.min), max: Math.ceil(range.max)} : null;
+}
+
+/**
  * The filter for a pair of handle positions.
  *
  * @param lo - The lower handle.
  * @param hi - The upper handle.
- * @param extent - The pack's BPM range (`facets().bpm`).
+ * @param extent - The slider's range ({@link bpmExtent}).
  * @returns `''` for an open end.
  */
 export function bpmFilterFromRange(lo: number, hi: number, extent: {min: number, max: number}): {bpmMin: string, bpmMax: string} {

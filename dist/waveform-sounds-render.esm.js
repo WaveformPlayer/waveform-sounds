@@ -203,6 +203,9 @@ var ICONS = {
 };
 
 // src/js/data/bpm.ts
+function bpmExtent(range) {
+  return range ? { min: Math.floor(range.min), max: Math.ceil(range.max) } : null;
+}
 function bpmRangeFromFilter(filter, extent) {
   const read = (v, fallback) => {
     const n = Number(v);
@@ -486,7 +489,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       placeholder: s.findKey,
       options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
     }),
-    plan.bpm && renderBpmMenu({ id, s, range: f.bpm }),
+    plan.bpm && renderBpmMenu({ id, s, range: bpmExtent(f.bpm) }),
     plan.loops && renderLoopFilter(s),
     plan.sorts.length > 0 && menu("sort", {
       label: s.sort,

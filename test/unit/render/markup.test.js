@@ -12,6 +12,14 @@ const sounds = [
 ];
 
 describe('renderSounds (server)', () => {
+    it('a fractional BPM pack gets whole-number slider ends (floor / ceil)', () => {
+        const html = renderSounds([{url: '/a.mp3', bpm: 89.5}, {url: '/b.mp3', bpm: 128.5}]);
+        expect(html).toContain('data-ws-bpm-min aria-label="Min BPM" min="89" max="129" step="1" value="89"');
+        expect(html).toContain('data-ws-bpm-max aria-label="Max BPM" min="89" max="129" step="1" value="129"');
+        expect(html).toContain('89–129 BPM');
+        expect(html).toContain('<span>89</span><span>129</span>');
+    });
+
     it('renders with no window or document', () => {
         expect(typeof window).toBe('undefined');
         expect(renderEntry.renderSounds(sounds)).toContain('data-ws-list');

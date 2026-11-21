@@ -609,6 +609,9 @@ function limitToReveal(limit, pos) {
 }
 
 // src/js/data/bpm.ts
+function bpmExtent(range) {
+  return range ? { min: Math.floor(range.min), max: Math.ceil(range.max) } : null;
+}
 function bpmFilterFromRange(lo, hi, extent) {
   const a = Math.min(lo, hi), b = Math.max(lo, hi);
   return {
@@ -1022,7 +1025,7 @@ function renderToolbar(plan, { o, s, f, total, id }) {
       placeholder: s.findKey,
       options: [{ value: "", label: s.anyKey }, ...f.keys.map((k) => ({ value: k, label: k }))]
     }),
-    plan.bpm && renderBpmMenu({ id, s, range: f.bpm }),
+    plan.bpm && renderBpmMenu({ id, s, range: bpmExtent(f.bpm) }),
     plan.loops && renderLoopFilter(s),
     plan.sorts.length > 0 && menu("sort", {
       label: s.sort,
@@ -1211,8 +1214,16 @@ function urlKeys(urlState) {
   return { q: `${p}q`, type: `${p}type`, key: `${p}key`, bpm: `${p}bpm`, loop: `${p}loop`, sort: `${p}sort` };
 }
 function parseBpmRange(value) {
-  const m = String(value ?? "").match(/^(\d*)-(\d*)$/);
-  return m && (m[1] || m[2]) ? { bpmMin: m[1], bpmMax: m[2] } : null;
+  const m = String(value ?? "").match(/^(\d+(?:\.\d+)?)?-(\d+(?:\.\d+)?)?$/);
+  if (!m || !(m[1] || m[2])) return null;
+  const lo = m[1] ?? "", hi = m[2] ?? "";
+  return lo && hi && Number(lo) > Number(hi) ? { bpmMin: hi, bpmMax: lo } : { bpmMin: lo, bpmMax: hi };
+}
+function bpmRangeWithin(range, extent) {
+  if (!extent) return null;
+  const inside = (v) => v !== "" && Number(v) >= extent.min && Number(v) <= extent.max ? v : "";
+  const out = { bpmMin: inside(range.bpmMin), bpmMax: inside(range.bpmMax) };
+  return out.bpmMin || out.bpmMax ? out : null;
 }
 function formatBpmRange(min, max) {
   const lo = min ?? "", hi = max ?? "";
@@ -1228,7 +1239,8 @@ function readUrlState(search, keys, available, sorts) {
   if (type && available.types.some((t) => t.name === type)) out.filter.type = type;
   const key = normalizeKey(sp.get(keys.key));
   if (key && available.keys.includes(key)) out.filter.key = key;
-  const bpm = parseBpmRange(sp.get(keys.bpm));
+  const parsed = parseBpmRange(sp.get(keys.bpm));
+  const bpm = parsed && available.bpm !== void 0 ? bpmRangeWithin(parsed, available.bpm) : parsed;
   if (bpm) Object.assign(out.filter, bpm);
   const loop = sp.get(keys.loop);
   if (LOOP_FILTERS.includes(loop) && available.loops > 0 && available.oneShots > 0) out.filter.loop = loop;
@@ -1321,7 +1333,7 @@ var WaveformSounds = class _WaveformSounds {
     this._resolveColors();
     if (!this._loopSet) this.loop = loopsByDefault(this.options.loop, facets(this.sounds));
     this._setLoop(this.loop);
-    this._bpmExtent = facets(this.sounds).bpm;
+    this._bpmExtent = bpmExtent(facets(this.sounds).bpm);
     this._sorts = availableSorts(this.render.sorts, facets(this.sounds));
     if (!this._sortSet) this.sortBy = this._sorts[0] || "default";
     this._readUrl();
@@ -1642,7 +1654,8 @@ var WaveformSounds = class _WaveformSounds {
   _readUrl() {
     const keys = urlKeys(this.options.urlState);
     if (!keys || typeof location === "undefined") return;
-    const { filter, sort } = readUrlState(location.search, keys, facets(this.sounds), this._sorts);
+    const f = facets(this.sounds);
+    const { filter, sort } = readUrlState(location.search, keys, { ...f, bpm: bpmExtent(f.bpm) }, this._sorts);
     this.filter = { ...this.filter, ...filter };
     if (sort) {
       this.sortBy = sort;

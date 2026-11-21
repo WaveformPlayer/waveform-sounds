@@ -1,6 +1,6 @@
 // @vitest-environment node
 import {describe, it, expect} from 'vitest';
-import {urlKeys, parseBpmRange, formatBpmRange, readUrlState, writeUrlState} from '../../../src/js/data/url-state.js';
+import {urlKeys, parseBpmRange, formatBpmRange, readUrlState, writeUrlState, bpmRangeWithin} from '../../../src/js/data/url-state.js';
 
 const available = {types: [{name: 'Bass'}, {name: 'Drums'}], keys: ['C', 'Fm']};
 const SORTS = ['default', 'title', 'bpm'];
@@ -18,7 +18,15 @@ describe('BPM ranges', () => {
     it.each([
         ['120-130', {bpmMin: '120', bpmMax: '130'}], ['120-', {bpmMin: '120', bpmMax: ''}], ['-130', {bpmMin: '', bpmMax: '130'}],
         ['-', null], ['abc', null], ['', null], [null, null],
+        ['128.5-130', {bpmMin: '128.5', bpmMax: '130'}], ['130-120', {bpmMin: '120', bpmMax: '130'}], ['1.-2', null], ['1e3-', null],
     ])('parses %j', (input, out) => expect(parseBpmRange(input)).toEqual(out));
+    it('keeps only limits inside the pack', () => {
+        const extent = {min: 90, max: 129};
+        expect(bpmRangeWithin({bpmMin: '120', bpmMax: '128.5'}, extent)).toEqual({bpmMin: '120', bpmMax: '128.5'});
+        expect(bpmRangeWithin({bpmMin: '999', bpmMax: ''}, extent)).toBeNull();
+        expect(bpmRangeWithin({bpmMin: '60', bpmMax: '100'}, extent)).toEqual({bpmMin: '', bpmMax: '100'});
+        expect(bpmRangeWithin({bpmMin: '120', bpmMax: ''}, null)).toBeNull();
+    });
     it('formats both ends, either end, or nothing', () => {
         expect(formatBpmRange(120, 130)).toBe('120-130');
         expect(formatBpmRange('', 130)).toBe('-130');
@@ -35,6 +43,18 @@ describe('readUrlState', () => {
     });
     it('ignores what the list cannot use', () => {
         expect(readUrlState('?type=Pads&key=Q&sort=key&bpm=x', keys, available, SORTS)).toEqual({filter: {}, sort: null});
+    });
+    it('BPM: puts a reversed range in order, drops limits outside the pack, reads decimals', () => {
+        const withBpm = {...available, bpm: {min: 120, max: 129}};
+        const bpm = (q) => readUrlState(q, keys, withBpm, SORTS).filter;
+        expect(bpm('?bpm=130-120')).toEqual({bpmMin: '120', bpmMax: ''});
+        expect(bpm('?bpm=128.5-129')).toEqual({bpmMin: '128.5', bpmMax: '129'});
+        expect(bpm('?bpm=999-')).toEqual({});
+        expect(readUrlState('?bpm=120-', keys, {...available, bpm: null}, SORTS).filter).toEqual({});
+    });
+    it('round-trips what writeUrlState writes for a decimal limit', () => {
+        const href = writeUrlState('https://x.test/p', keys, {query: '', type: '', key: '', bpmMin: 120.5, bpmMax: '', loop: ''}, 'default', 'default');
+        expect(readUrlState(new URL(href).search, keys, {...available, bpm: {min: 90, max: 129}}, SORTS).filter).toEqual({bpmMin: '120.5', bpmMax: ''});
     });
     it('reads nothing when off', () => {
         expect(readUrlState('?q=x', null, available, SORTS)).toEqual({filter: {}, sort: null});

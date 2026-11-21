@@ -26,12 +26,34 @@ export declare function urlKeys(urlState: boolean | string | null | undefined): 
     sort: string;
 } | null;
 /**
- * A BPM range parameter: "120-130", "120-" or "-130".
+ * A BPM range parameter: "120-130", "120-", "-130", or with decimals
+ * ("128.5-130", what `setFilter({bpmMin: 128.5})` writes). Reversed ends
+ * are put in order.
  *
  * @param value
  * @returns null if malformed.
  */
 export declare function parseBpmRange(value: string | null | undefined): {
+    bpmMin: string;
+    bpmMax: string;
+} | null;
+/**
+ * Keep only the limits that fall inside the pack's BPM range: a link made
+ * for another pack (`?bpm=200-` on one topping out at 174) must not empty
+ * the list, and a limit beyond an end is no limit at all.
+ *
+ * @param range - From {@link parseBpmRange}.
+ * @param extent - The slider's range; null when the pack has no BPMs
+ *   (then any BPM filter would hide everything, so none is kept).
+ * @returns The usable limits, or null when none is left.
+ */
+export declare function bpmRangeWithin(range: {
+    bpmMin: string;
+    bpmMax: string;
+}, extent: {
+    min: number;
+    max: number;
+} | null): {
     bpmMin: string;
     bpmMax: string;
 } | null;
@@ -45,14 +67,16 @@ export declare function parseBpmRange(value: string | null | undefined): {
 export declare function formatBpmRange(min: string | number | null | undefined, max: string | number | null | undefined): string;
 /**
  * Read the filter and sort from a query string. Values the list can't use
- * (a type it doesn't have, a key no sound is in, a loops filter on a list
- * that isn't a mix of loops and one-shots, a sort it doesn't offer)
+ * (a type it doesn't have, a key no sound is in, a BPM limit outside its
+ * range, a loops filter on a list that isn't a mix of loops and one-shots,
+ * a sort it doesn't offer)
  * are ignored, never applied: a stale link shows the whole list, not an
  * empty one.
  *
  * @param search - `location.search`.
  * @param keys
- * @param available - From `facets()`.
+ * @param available - From `facets()`, with `bpm` as the slider's range
+ *   (`bpmExtent()`).
  * @param sorts - The sort orders offered.
  * @returns A filter patch, and the sort (or null).
  */
@@ -63,6 +87,10 @@ export declare function readUrlState(search: string, keys: ReturnType<typeof url
     keys: string[];
     loops?: number;
     oneShots?: number;
+    bpm?: {
+        min: number;
+        max: number;
+    } | null;
 }, sorts: string[]): {
     filter: Partial<SoundsFilter>;
     sort: string | null;
